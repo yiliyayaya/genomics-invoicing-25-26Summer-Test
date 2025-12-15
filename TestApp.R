@@ -20,7 +20,7 @@ library(readxl)     # For reading Excel files
 library(openxlsx)   # For creating and formatting Excel exports
 library(tidyr)      # For data tidying (e.g., replace_na)
 library(rmarkdown)  # For generating PDF reports
-library(shinyjs)    # For JavaScript operations (hiding/disabling inputs)
+library(shinyjs)    # For JavaScript operations (hiding/disabling inputs, onclick events)
 library(tinytex)    # Helper for compiling LaTeX to PDF
 
 # ==============================================================================
@@ -536,7 +536,8 @@ server <- function(input, output, session) {
     datatable(display_df,
               selection = "single",
               # Allow editing of Quantity (col 5), Discount % (col 6), and Discount $ (col 7)
-              editable = list(target = "cell", disable = list(columns = c(0, 1, 2, 3, 8))),
+              # Disabled: Code(0), Name(1), Desc(2), Type(3), Unit_Price(4), Total(8)
+              editable = list(target = "cell", disable = list(columns = c(0, 1, 2, 3, 4, 8))),
               options = list(
                 pageLength = 25, 
                 dom = 't',
@@ -610,7 +611,7 @@ server <- function(input, output, session) {
   # SECTION 5: EXPORT HANDLERS (Excel & PDF)
   # ============================================================================
   
-  # --- Handler: Template Download (Added) ---
+  # --- Handler: Template Download ---
   # Allows users to download the template file directly from the app
   output$dl_template <- downloadHandler(
     filename = "master_spreadsheet_25_26_summer.xlsx",
@@ -750,6 +751,19 @@ server <- function(input, output, session) {
       saveWorkbook(wb, file, overwrite = TRUE)
     }
   )
+  
+  # --- Event: PDF Download Notification ---
+  # Replaced the modal with a persistent 'warning' notification.
+  # type="warning" sets the color to yellow/orange.
+  # duration=60 ensures it stays 60s until closed by the user.
+  shinyjs::onclick("dl_pdf", {
+    showNotification(
+      "Note: The first PDF generation may take a few minutes. Subsequent PDF downloads will be instantaneous.",
+      type = "warning",
+      duration = 60,
+      closeButton = TRUE
+    )
+  })
   
   # --- Handler: PDF Download ---
   output$dl_pdf <- downloadHandler(
