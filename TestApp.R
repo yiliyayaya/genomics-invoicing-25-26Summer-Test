@@ -140,6 +140,12 @@ ui <- page_sidebar(
     width = 350,
     title = NULL,
     
+    # 0. Helper: Download Template Button (For users without the source file)
+    # Using margin-bottom: 0px to ensure it sits directly above the file input
+    div(style = "margin-bottom: 5px;",
+        downloadButton("dl_template", "Download Template (.xlsx)", class = "btn-outline-primary w-100 btn-sm")
+    ),
+    
     # 1. Global Input: File Upload (Always Visible)
     fileInput("master_sheet", "1. Upload Master Spreadsheet (.xlsx)", accept = ".xlsx"),
     
@@ -603,6 +609,16 @@ server <- function(input, output, session) {
   # ============================================================================
   # SECTION 5: EXPORT HANDLERS (Excel & PDF)
   # ============================================================================
+  
+  # --- Handler: Template Download (Added) ---
+  # Allows users to download the template file directly from the app
+  output$dl_template <- downloadHandler(
+    filename = "master_spreadsheet_25_26_summer.xlsx",
+    content = function(file) {
+      # Copies the file from the deployment bundle to the user's download stream
+      file.copy("master_spreadsheet_25_26_summer.xlsx", file)
+    }
+  )
   
   # --- Handler: Excel Download ---
   output$dl_excel <- downloadHandler(
