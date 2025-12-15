@@ -28,52 +28,55 @@ library(tinytex)    # Helper for compiling LaTeX to PDF
 # ==============================================================================
 
 # Function: process_pricing_logic
-# Purpose: Reads the uploaded Excel file and processes pricing rules, items, and services.
+# Purpose: Reads the uploaded Excel file and processes pricing rules based on fixed row order.
 # Input: file_path (location of the uploaded .xlsx file)
 process_pricing_logic <- function(file_path) {
   
   # --- Step 1: Process Configuration (Sheet 3) ---
-  # Reads pricing multipliers and logic from the 3rd sheet.
+  # Reads the multiplier configurations.
+  # Logic relies on ROW ORDER, not label names.
   raw_config <- read_excel(file_path, sheet = 3, col_names = TRUE)
   
+  # Select only relevant columns: Type (Col 1) and Amount (Col 3)
   df_config <- raw_config %>%
-    select(1:4) %>%
-    setNames(c("Type", "Label", "Amount", "Order")) %>%
-    mutate(Amount = as.numeric(Amount), Order = as.numeric(Order))
+    select(1, 3) %>% 
+    setNames(c("Type", "Amount")) %>%
+    mutate(Amount = as.numeric(Amount))
   
-  # Calculate cumulative multipliers for "PROCESSING" services.
-  proc_multipliers <- df_config %>%
-    filter(Type == "PROCESSING") %>%
-    arrange(Order) %>%
-    mutate(Cumulative_Mult = cumprod(Amount))
+  # --- LOGIC A: PRICE_LIST (Consumables/Items) ---
+  # Strategy: Filter for "PRICE_LIST" and use row indices.
+  # Row 1 -> Internal Multiplier
+  # Row 2 -> External Multiplier
+  pl_rows <- df_config %>% filter(Type == "PRICE_LIST")
   
-  # Helper function to get the multiplier for a specific order index.
-  get_mult <- function(ord) {
-    val <- proc_multipliers %>% filter(Order == ord) %>% pull(Cumulative_Mult)
-    if(length(val) > 0) return(val) else return(1)
-  }
+  val_item_int <- if(nrow(pl_rows) >= 1) pl_rows$Amount[1] else 1.1 # Default 1.1 if missing
+  val_item_ext <- if(nrow(pl_rows) >= 2) pl_rows$Amount[2] else 1.3 # Default 1.3 if missing
   
-  # Define logic map for different project types (Processing Services)
-  processing_logic <- list(
-    "Internal"          = get_mult(1),
-    "Ext.Collaborative" = get_mult(2),
-    "Ext.RSA"           = get_mult(3),
-    "Commercial"        = get_mult(4)
+  item_logic <- list(
+    "Internal" = val_item_int,
+    "External" = val_item_ext
   )
   
-  # Extract base markups for Consumables (Price List items)
-  price_list_rows <- df_config %>% filter(Type == "PRICE_LIST")
-  val_internal <- price_list_rows %>% filter(grepl("Internal", Label, ignore.case = TRUE)) %>% pull(Amount)
-  val_external <- price_list_rows %>% filter(grepl("External", Label, ignore.case = TRUE)) %>% pull(Amount)
+  # --- LOGIC B: PROCESSING (Services) ---
+  # Strategy: Filter for "PROCESSING" and use cumulative product (cumprod).
+  # Row 1 -> Internal
+  # Row 2 -> Ext. Collaborative
+  # Row 3 -> Ext. RSA
+  # Row 4 -> Commercial
+  proc_rows <- df_config %>% 
+    filter(Type == "PROCESSING") %>%
+    mutate(Cumulative = cumprod(Amount)) # Multipliers stack on top of each other
   
-  # Fallback defaults if configuration is missing
-  if(length(val_internal) == 0) val_internal <- 1.1
-  if(length(val_external) == 0) val_external <- 1.3
+  # Helper function to safely retrieve cumulative value by row index
+  get_proc_val <- function(idx) {
+    if(nrow(proc_rows) >= idx) return(proc_rows$Cumulative[idx]) else return(1)
+  }
   
-  # Define logic map for Consumables (Items)
-  item_logic <- list(
-    "Internal" = val_internal[1],
-    "External" = val_external[1]
+  processing_logic <- list(
+    "Internal"          = get_proc_val(1), # Corresponds to Row 1
+    "Ext.Collaborative" = get_proc_val(2), # Corresponds to Row 2
+    "Ext.RSA"           = get_proc_val(3), # Corresponds to Row 3
+    "Commercial"        = get_proc_val(4)  # Corresponds to Row 4
   )
   
   # --- Step 2: Process Items Catalog (Sheet 1) ---
@@ -81,13 +84,13 @@ process_pricing_logic <- function(file_path) {
   raw_items <- read_excel(file_path, sheet = 1, col_names = TRUE)
   
   df_items <- raw_items %>%
-    select(1, 2, 3, 4, 5, 6, 7, 8) %>% 
+    select(1:8) %>% 
     setNames(c("Product_Code", "Brand", "Item", "Category", "Description", "Base_Cost", "Add_Cost", "Is_Constant")) %>%
     mutate(
       Base_Cost = as.numeric(Base_Cost),
       Add_Cost = as.numeric(replace_na(Add_Cost, 0)),
       Is_Constant = as.character(Is_Constant),
-      # Convert various boolean string representations to TRUE/FALSE
+      # Normalize boolean text to logical TRUE/FALSE
       Is_Constant = case_when(
         toupper(Is_Constant) %in% c("TRUE", "T", "YES", "Y", "1") ~ TRUE,
         TRUE ~ FALSE
@@ -107,7 +110,7 @@ process_pricing_logic <- function(file_path) {
     filter(!is.na(Base_Price)) %>%
     mutate(across(where(is.character), as.character))
   
-  # Return all processed dataframes and logic lists
+  # Return structured list containing all processed data and logic maps
   return(list(items = df_items, services = df_services, logic_proc = processing_logic, logic_item = item_logic))
 }
 
@@ -346,7 +349,7 @@ server <- function(input, output, session) {
   }, striped = TRUE, hover = TRUE, bordered = TRUE, width = "100%")
   
   # --- Logic: Calculate Item Prices (Tab 1 Display) ---
-  # Now calculates both Internal and External prices for display
+  # Calculates both Internal and External prices for initial display.
   output$table_items_catalog <- renderDT({
     req(values$data)
     df <- values$data$items
@@ -358,7 +361,7 @@ server <- function(input, output, session) {
     m_int <- values$data$logic_item[["Internal"]]
     m_ext <- values$data$logic_item[["External"]]
     
-    # Calculate columns
+    # Calculate columns for display
     df_display <- df %>% 
       mutate(
         Price_Internal = ifelse(Is_Constant, Base_Cost + Add_Cost, (Base_Cost * m_int) + Add_Cost),
@@ -415,13 +418,13 @@ server <- function(input, output, session) {
   })
   
   # --- Logic: Calculate Service Prices (Tab 2 Display) ---
-  # Calculates 4 specific columns for display
+  # Calculates 4 specific columns for display based on Sheet 3 Logic.
   output$table_proc_catalog <- renderDT({
     req(values$data)
     df <- values$data$services
     if(input$filter_group != "All") df <- df %>% filter(Group == input$filter_group)
     
-    # Retrieve Multipliers
+    # Retrieve Multipliers from processed logic
     m_int <- values$data$logic_proc[["Internal"]]
     m_col <- values$data$logic_proc[["Ext.Collaborative"]]
     m_rsa <- values$data$logic_proc[["Ext.RSA"]]
@@ -779,10 +782,10 @@ server <- function(input, output, session) {
         "  batch_label: NA",
         "geometry: margin=0.8cm", 
         "header-includes:",
-        "   - \\usepackage{booktabs}",
-        "   - \\usepackage{colortbl}",
-        "   - \\usepackage{xcolor}",
-        "   - \\usepackage{float}",
+        "    - \\usepackage{booktabs}",
+        "    - \\usepackage{colortbl}",
+        "    - \\usepackage{xcolor}",
+        "    - \\usepackage{float}",
         "---",
         "",
         chunk_header,
