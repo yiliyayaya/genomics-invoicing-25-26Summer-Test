@@ -157,10 +157,7 @@ ui <- page_sidebar(
     # 1. Global Input: File Upload (Always Visible)
     fileInput("master_sheet", "1. Upload Master Spreadsheet (.xlsx)", accept = ".xlsx"),
     
-    #2. Global Input: Platform Select (Always Visible)
-    selectInput("platform_select", "Select Platform filter", choices = "All", selectize=TRUE),
-    
-    # 3. Tab 1 Specific: Filter Items
+    # 2. Tab 2 Specific: Filter Items
     conditionalPanel(
       condition = "input.nav_tabs == 'tab_items'",
       h5("Filter Items"),
@@ -170,7 +167,7 @@ ui <- page_sidebar(
       actionButton("add_items_btn", "Add Selected to Quote", class = "btn-success w-100")
     ),
     
-    # 4. Tab 2 Specific: Filter Services
+    # 3. Tab 3 Specific: Filter Services
     conditionalPanel(
       condition = "input.nav_tabs == 'tab_processing'",
       h5("Filter Services"),
@@ -179,7 +176,7 @@ ui <- page_sidebar(
       actionButton("add_proc_btn", "Add Selected to Quote", class = "btn-success w-100")
     ),
     
-    # 5. Tab 3 Specific: Project Configuration & Metadata
+    # 4. Tab 4 Specific: Project Configuration & Metadata
     # This section contains the Project Type selector and Multiplier Table
     conditionalPanel(
       condition = "input.nav_tabs == 'tab_quote'",
@@ -216,9 +213,19 @@ ui <- page_sidebar(
   navset_card_underline(
     id = "nav_tabs",
     
+    # Tab 1: Select platform for filter
+    nav_panel(
+      title = "1. Select Platform",
+      value = "tab_platform",
+      card (
+        card_header("Select Platform"),
+        radioButtons("platform_select", "Platform Selection", choices = "All"),
+      )
+    ),
+    
     # Tab 2: Catalog for Consumables
     nav_panel(
-      title = "1. Select Items",
+      title = "2. Select Items",
       value = "tab_items",
       card(
         card_header("Items Catalog (Consumables)"),
@@ -228,7 +235,7 @@ ui <- page_sidebar(
     
     # Tab 3: Catalog for Services
     nav_panel(
-      title = "2. Select Processing",
+      title = "3. Select Processing",
       value = "tab_processing",
       card(
         card_header("Processing Services Catalog"),
@@ -238,7 +245,7 @@ ui <- page_sidebar(
     
     # Tab 4: Final Quote Review
     nav_panel(
-      title = "3. Final Quote",
+      title = "4. Final Quote",
       value = "tab_quote",
       card(
         full_screen = TRUE, 
@@ -343,7 +350,7 @@ server <- function(input, output, session) {
       updateSelectInput(session, "filter_brand", choices = c("All", brands_sorted))
       updateSelectInput(session, "filter_category", choices = c("All", cats_sorted))
       updateSelectInput(session, "filter_group", choices = c("All", groups_sorted))
-      updateSelectInput(session, "platform_select", choices = c("All", platform_sorted))
+      updateRadioButtons(session, "platform_select", choices = c("All", platform_sorted))
       showNotification("Data loaded successfully!", type = "message")
     }, error = function(e) {
       showNotification(paste("Error loading file:", e$message), type = "error")
