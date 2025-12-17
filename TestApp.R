@@ -99,6 +99,10 @@ process_pricing_logic <- function(file_path) {
     filter(!is.na(Base_Cost)) %>%
     mutate(across(where(is.character), as.character)) 
   
+  # Get Platform and Item pairs
+  item_platform_needed_cols <- c("Item", "Platform")
+  df_platform_item <- raw_items[, item_platform_needed_cols]
+  
   # --- Step 3: Process Services Catalog (Sheet 2) ---
   # Reads the list of processing services.
   raw_services <- read_excel(file_path, sheet = 2, col_names = TRUE)
@@ -110,8 +114,12 @@ process_pricing_logic <- function(file_path) {
     filter(!is.na(Base_Price)) %>%
     mutate(across(where(is.character), as.character))
   
+  # Get Platform and Service pairs
+  process_platform_needed_col <- c("Service", "Platform")
+  df_platform_process <- raw_services[, process_platform_needed_col]
+  
   # Return structured list containing all processed data and logic maps
-  return(list(items = df_items, services = df_services, logic_proc = processing_logic, logic_item = item_logic))
+  return(list(items = df_items, services = df_services, logic_proc = processing_logic, logic_item = item_logic, platform_item = df_platform_item, platform_proc = df_platform_process))
 }
 
 # ==============================================================================
@@ -149,7 +157,10 @@ ui <- page_sidebar(
     # 1. Global Input: File Upload (Always Visible)
     fileInput("master_sheet", "1. Upload Master Spreadsheet (.xlsx)", accept = ".xlsx"),
     
-    # 2. Tab 1 Specific: Filter Items
+    #2. Global Input: Platform Select (Always Visible)
+    selectInput("platform_select", "Select Platform filter", choices = "All", selectize=TRUE),
+    
+    # 3. Tab 1 Specific: Filter Items
     conditionalPanel(
       condition = "input.nav_tabs == 'tab_items'",
       h5("Filter Items"),
@@ -159,7 +170,7 @@ ui <- page_sidebar(
       actionButton("add_items_btn", "Add Selected to Quote", class = "btn-success w-100")
     ),
     
-    # 3. Tab 2 Specific: Filter Services
+    # 4. Tab 2 Specific: Filter Services
     conditionalPanel(
       condition = "input.nav_tabs == 'tab_processing'",
       h5("Filter Services"),
@@ -168,7 +179,7 @@ ui <- page_sidebar(
       actionButton("add_proc_btn", "Add Selected to Quote", class = "btn-success w-100")
     ),
     
-    # 4. Tab 3 Specific: Project Configuration & Metadata
+    # 5. Tab 3 Specific: Project Configuration & Metadata
     # This section contains the Project Type selector and Multiplier Table
     conditionalPanel(
       condition = "input.nav_tabs == 'tab_quote'",
@@ -205,7 +216,7 @@ ui <- page_sidebar(
   navset_card_underline(
     id = "nav_tabs",
     
-    # Tab 1: Catalog for Consumables
+    # Tab 2: Catalog for Consumables
     nav_panel(
       title = "1. Select Items",
       value = "tab_items",
@@ -215,7 +226,7 @@ ui <- page_sidebar(
       )
     ),
     
-    # Tab 2: Catalog for Services
+    # Tab 3: Catalog for Services
     nav_panel(
       title = "2. Select Processing",
       value = "tab_processing",
@@ -225,7 +236,7 @@ ui <- page_sidebar(
       )
     ),
     
-    # Tab 3: Final Quote Review
+    # Tab 4: Final Quote Review
     nav_panel(
       title = "3. Final Quote",
       value = "tab_quote",
@@ -327,10 +338,12 @@ server <- function(input, output, session) {
       brands_sorted <- sort(unique(values$data$items$Brand))
       cats_sorted <- sort(unique(values$data$items$Category))
       groups_sorted <- sort(unique(values$data$services$Group))
+      platform_sorted <- sort(unique(c(values$data$platform_item$Platform, values$data$platform_proc$Platform)))
       
       updateSelectInput(session, "filter_brand", choices = c("All", brands_sorted))
       updateSelectInput(session, "filter_category", choices = c("All", cats_sorted))
       updateSelectInput(session, "filter_group", choices = c("All", groups_sorted))
+      updateSelectInput(session, "platform_select", choices = c("All", platform_sorted))
       showNotification("Data loaded successfully!", type = "message")
     }, error = function(e) {
       showNotification(paste("Error loading file:", e$message), type = "error")
@@ -362,6 +375,10 @@ server <- function(input, output, session) {
     
     if(input$filter_brand != "All") df <- df %>% filter(Brand == input$filter_brand)
     if(input$filter_category != "All") df <- df %>% filter(Category == input$filter_category)
+    if(input$platform_select != "All") {
+      common_items <- values$data$platform_item %>% filter(Platform == input$platform_select)
+      df <- df[df$Item %in% common_items$Item, ]
+    } 
     
     # Retrieve Multipliers
     m_int <- values$data$logic_item[["Internal"]]
@@ -429,6 +446,10 @@ server <- function(input, output, session) {
     req(values$data)
     df <- values$data$services
     if(input$filter_group != "All") df <- df %>% filter(Group == input$filter_group)
+    if(input$platform_select != "All") {
+      common_services <- values$data$platform_proc %>% filter(Platform == input$platform_select)
+      df <- df[df$Service %in% common_services$Service, ]
+    }
     
     # Retrieve Multipliers from processed logic
     m_int <- values$data$logic_proc[["Internal"]]
