@@ -587,7 +587,7 @@ server <- function(input, output, session) {
       as.data.frame() 
     
     datatable(display_df,
-              selection = "single",
+              selection = "multiple",
               # Allow editing of Quantity (col 5), Discount % (col 6), and Discount $ (col 7)
               # Disabled: Code(0), Name(1), Desc(2), Type(3), Unit_Price(4), Total(8)
               editable = list(target = "cell", disable = list(columns = c(0, 1, 2, 3, 4, 8))),
@@ -647,7 +647,21 @@ server <- function(input, output, session) {
   # --- Observer: Apply Supplier Discount ---
   observeEvent(input$apply_supp_disc_btn, {
     req(input$supplier_discount_select, input$table_final_quote_rows_selected)
+    if(input$supplier_discount_select == "") {
+      return()
+    }
+    discount_data <- values$data$supplier_discount %>% filter(Display_Text == input$supplier_discount_select)
+    discount_pct <- discount_data$Amount[1] * 100
     
+    for (row_idx in input$table_final_quote_rows_selected) {
+      current_row <- values$cart[row_idx, ]
+      
+      values$cart$Disc_Pct[row_idx] <- discount_pct
+      pre_discount_total <- current_row$Unit_Price * current_row$Quantity
+      discount_amt <- pre_discount_total * (discount_pct / 100)
+      values$cart$Disc_Amt[row_idx] <- discount_amt
+      values$cart$Final_Total[row_idx] <- pre_discount_total - discount_amt
+    }
   })
   
   # --- Event: Remove Row ---
