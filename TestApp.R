@@ -118,8 +118,26 @@ process_pricing_logic <- function(file_path) {
   process_platform_needed_col <- c("Service", "Platform")
   df_platform_process <- raw_services[, process_platform_needed_col]
   
+  # --- Step 4: Processing Discounts (Sheet 4) ---
+  # Reads the list of discounts
+  raw_discounts <- read_excel(file_path, sheet = 4, col_names = TRUE)
+  df_discounts <- raw_discounts %>%
+    setNames(c("Supplier", "Label", "Amount", "End_Date")) %>%
+    mutate(
+      Supplier = as.character(Supplier),
+      Label = as.character(Label),
+      Amount = as.numeric(Amount),
+      End_Date = as.Date(End_Date)
+    ) %>%
+    filter(!is.na(Amount)) %>%
+    mutate(End_Date = replace_na(End_Date, Sys.Date())) %>%
+    filter(End_Date >= Sys.Date()) %>%
+    mutate(Display_Text = paste(Supplier, Label, Amount, sep = " | ")) %>%
+    select(-End_Date)
+  
   # Return structured list containing all processed data and logic maps
-  return(list(items = df_items, services = df_services, logic_proc = processing_logic, logic_item = item_logic, platform_item = df_platform_item, platform_proc = df_platform_process))
+  return(list(items = df_items, services = df_services, logic_proc = processing_logic, logic_item = item_logic, 
+              platform_item = df_platform_item, platform_proc = df_platform_process, supplier_discount = df_discounts))
 }
 
 # ==============================================================================
@@ -194,6 +212,10 @@ ui <- page_sidebar(
             tableOutput("multiplier_table") 
         )
       ),
+      hr(),
+      
+      selectInput("supplier_discount_select", "Supplier Discounts (Optional)", choices = c(""), selectize=TRUE),
+      actionButton("apply_supp_disc_btn", "Apply Selected Discount"),
       
       hr(),
       h5("Project Metadata"),
@@ -346,11 +368,14 @@ server <- function(input, output, session) {
       cats_sorted <- sort(unique(values$data$items$Category))
       groups_sorted <- sort(unique(values$data$services$Group))
       platform_sorted <- sort(unique(c(values$data$platform_item$Platform, values$data$platform_proc$Platform)))
+      supplier_discount_labels <- sort(unique(values$data$supplier_discount$Display_Text))
       
       updateSelectInput(session, "filter_brand", choices = c("All", brands_sorted))
       updateSelectInput(session, "filter_category", choices = c("All", cats_sorted))
       updateSelectInput(session, "filter_group", choices = c("All", groups_sorted))
       updateRadioButtons(session, "platform_select", choices = c("All", platform_sorted))
+      updateSelectInput(session, "supplier_discount_select", choices = c("", supplier_discount_labels))
+      
       showNotification("Data loaded successfully!", type = "message")
     }, error = function(e) {
       showNotification(paste("Error loading file:", e$message), type = "error")
@@ -617,6 +642,12 @@ server <- function(input, output, session) {
       values$cart$Disc_Pct[row_idx] <- pct
       values$cart$Final_Total[row_idx] <- gross - amt
     }
+  })
+  
+  # --- Observer: Apply Supplier Discount ---
+  observeEvent(input$apply_supp_disc_btn, {
+    req(input$supplier_discount_select, input$table_final_quote_rows_selected)
+    
   })
   
   # --- Event: Remove Row ---
