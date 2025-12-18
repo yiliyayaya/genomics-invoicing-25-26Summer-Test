@@ -406,6 +406,16 @@ server <- function(input, output, session) {
     })
   })
   
+  # --- Event: Switch tabs after Platform Select ---
+  observeEvent(input$platform_select, {
+    if(input$platform_select != "All") {
+      nav_select (
+        id= "nav_tabs",
+        selected = "tab_items"
+      )
+    }
+  })
+  
   # --- Output: Multiplier Table ---
   # Shows users which multipliers are currently applied based on Project Type.
   output$multiplier_table <- renderTable({
