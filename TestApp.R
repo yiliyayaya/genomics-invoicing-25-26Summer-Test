@@ -215,7 +215,13 @@ ui <- page_sidebar(
       hr(),
       
       selectInput("supplier_discount_select", "Supplier Discounts (Optional)", choices = c(""), selectize=TRUE),
-      actionButton("apply_supp_disc_btn", "Apply Selected Discount"),
+      actionButton("apply_supp_disc_btn", "Apply Supplier Discount"),
+      
+      numericInput("percent_discount_input", "Custom Discount (as % between 0-100)", value = 0, min = 0, max = 100),
+      actionButton("apply_percent_discount", "Apply Custom % Discount"),
+      
+      numericInput("amount_discount_input", "Custom Discount (as $)", value = 0, min = 0),
+      actionButton("apply_amount_discount", "Apply Custom $ Discount"),
       
       hr(),
       h5("Project Metadata"),
@@ -661,6 +667,54 @@ server <- function(input, output, session) {
       discount_amt <- pre_discount_total * (discount_pct / 100)
       values$cart$Disc_Amt[row_idx] <- discount_amt
       values$cart$Final_Total[row_idx] <- pre_discount_total - discount_amt
+    }
+  })
+  
+  # --- Observer: Apply Custom Discounts ---
+  # Apply % discount
+  observeEvent(input$apply_percent_discount, {
+    req(input$table_final_quote_rows_selected, input$percent_discount_input)
+    if(input$percent_discount_input < 0 | input$percent_discount_input > 100) {
+      showNotification("Input Error: % Discount must be numeric between 0 and 100.", type = "warning")
+      return()
+    }
+    
+    discount_pct <- input$percent_discount_input
+    
+    for (row_idx in input$table_final_quote_rows_selected) {
+      current_row <- values$cart[row_idx, ]
+      values$cart$Disc_Pct[row_idx] <- discount_pct
+      pre_discount_total <- current_row$Unit_Price * current_row$Quantity
+      discount_amt <- pre_discount_total * (discount_pct / 100)
+      values$cart$Disc_Amt[row_idx] <- discount_amt
+      values$cart$Final_Total[row_idx] <- pre_discount_total - discount_amt
+    }
+  })
+  
+  # Apply $ discount
+  observeEvent(input$apply_amount_discount, {
+    req(input$table_final_quote_rows_selected, input$amount_discount_input)
+    if(input$amount_discount_input < 0) {
+      showNotification("Input Error: $ Discount must non-negative.", type = "warning")
+      return()
+    }
+    
+    discount_amt <- input$amount_discount_input
+
+    for (row_idx in input$table_final_quote_rows_selected) {
+      current_row <- values$cart[row_idx, ]
+      values$cart$Disc_Amt[row_idx] <- discount_amt
+      pre_discount_total <- current_row$Unit_Price * current_row$Quantity
+      if(pre_discount_total < discount_amt) {
+        discount_pct <-  100
+        values$cart$Disc_Amt[row_idx] <- pre_discount_total
+        values$cart$Disc_Pct[row_idx] <- discount_pct
+        values$cart$Final_Total[row_idx] <- 0
+      } else {
+        discount_pct <- (discount_amt / pre_discount_total) * 100
+        values$cart$Disc_Pct[row_idx] <- discount_pct
+        values$cart$Final_Total[row_idx] <- pre_discount_total - discount_amt  
+      }
     }
   })
   
