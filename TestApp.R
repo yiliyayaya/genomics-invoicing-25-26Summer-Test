@@ -100,8 +100,17 @@ process_pricing_logic <- function(file_path) {
     mutate(across(where(is.character), as.character)) 
   
   # Get Platform and Item pairs
-  item_platform_needed_cols <- c("Item", "Platform")
+  item_platform_needed_cols <- c("Brand", "Item", "Platform")
   df_platform_item <- raw_items[, item_platform_needed_cols]
+  df_platform_item$Platform[is.na(df_platform_item$Platform)] <- "ALL_PLATFORMS"
+  df_platform_item <- df_platform_item %>% 
+    setNames(c("Brand", "Item", "Platform_String")) %>%
+    mutate(Brand = as.character(Brand),
+           Item = as.character(Item),
+           Platform_String = as.character(Platform_String),
+           Platform = strsplit(Platform_String, split = ";", fixed = TRUE)) %>%
+    select(-Platform_String)
+    
   
   # --- Step 3: Process Services Catalog (Sheet 2) ---
   # Reads the list of processing services.
@@ -117,6 +126,12 @@ process_pricing_logic <- function(file_path) {
   # Get Platform and Service pairs
   process_platform_needed_col <- c("Service", "Platform")
   df_platform_process <- raw_services[, process_platform_needed_col]
+  df_platform_process <- df_platform_process %>% 
+    setNames(c("Service", "Platform_String")) %>%
+    mutate(Service = as.character(Service),
+           Platform_String = as.character(Platform_String),
+           Platform = strsplit(Platform_String, ";", fixed = TRUE)) %>%
+    select(-Platform_String)
   
   # --- Step 4: Processing Discounts (Sheet 4) ---
   # Reads the list of discounts
@@ -373,8 +388,11 @@ server <- function(input, output, session) {
       brands_sorted <- sort(unique(values$data$items$Brand))
       cats_sorted <- sort(unique(values$data$items$Category))
       groups_sorted <- sort(unique(values$data$services$Group))
-      platform_sorted <- sort(unique(c(values$data$platform_item$Platform, values$data$platform_proc$Platform)))
       supplier_discount_labels <- sort(unique(values$data$supplier_discount$Display_Text))
+      
+      platform_sorted <- sort(unique(c(unlist(values$data$platform_item$Platform, use.names = FALSE), 
+                                       unlist(values$data$platform_proc$Platform, use.names = FALSE))))
+      platform_sorted <- platform_sorted[!(platform_sorted %in% c("ALL_PLATFORMS"))]
       
       updateSelectInput(session, "filter_brand", choices = c("All", brands_sorted))
       updateSelectInput(session, "filter_category", choices = c("All", cats_sorted))
@@ -414,8 +432,11 @@ server <- function(input, output, session) {
     if(input$filter_brand != "All") df <- df %>% filter(Brand == input$filter_brand)
     if(input$filter_category != "All") df <- df %>% filter(Category == input$filter_category)
     if(input$platform_select != "All") {
-      common_items <- values$data$platform_item %>% filter(Platform == input$platform_select)
-      df <- df[df$Item %in% common_items$Item, ]
+      common_items <- values$data$platform_item %>% 
+        rowwise() %>%
+        filter(any(Platform %in% input$platform_select) | any(Platform == "ALL_PLATFORMS")) %>%
+        ungroup()
+      df <- df %>% semi_join(common_items, by=c("Item", "Brand"))
     } 
     
     # Retrieve Multipliers
@@ -485,7 +506,10 @@ server <- function(input, output, session) {
     df <- values$data$services
     if(input$filter_group != "All") df <- df %>% filter(Group == input$filter_group)
     if(input$platform_select != "All") {
-      common_services <- values$data$platform_proc %>% filter(Platform == input$platform_select)
+      common_services <- values$data$platform_proc %>% 
+        rowwise() %>%
+        filter(any(Platform %in% input$platform_select) | any(Platform == "ALL_PLATFORMS")) %>%
+        ungroup()
       df <- df[df$Service %in% common_services$Service, ]
     }
     
