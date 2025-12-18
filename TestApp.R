@@ -11,6 +11,11 @@ new_packages <- packages[!(packages %in% installed.packages()[,"Package"])]
 # Install missing packages if any are found
 if(length(new_packages)) install.packages(new_packages)
 
+# Ensure TinyTeX is installed for PDF generation immediately during setup
+if (!tinytex::is_tinytex()) {
+  tinytex::install_tinytex(force = TRUE)
+}
+
 # Load libraries
 library(shiny)      # Core framework for the web app
 library(bslib)      # For modern Bootstrap themes and styling
@@ -141,7 +146,7 @@ ui <- page_sidebar(
     title = NULL,
     
     # 0. Helper: Download Template Button (For users without the source file)
-    # Using margin-bottom: 0px to ensure it sits directly above the file input
+    # Using margin-bottom: 5px to ensure it sits directly above the file input
     div(style = "margin-bottom: 5px;",
         downloadButton("dl_template", "Download Template (.xlsx)", class = "btn-outline-primary w-100 btn-sm")
     ),
@@ -269,6 +274,17 @@ ui <- page_sidebar(
 # ==============================================================================
 
 server <- function(input, output, session) {
+  
+  # --- Background Warm-up for PDF Engine ---
+  # Silently renders a minimal PDF at startup to initialize LaTeX packages and fonts.
+  # This avoids the long lead time during the first user-requested download.
+  observe({
+    try({
+      temp_warmup <- file.path(tempdir(), "warmup.Rmd")
+      writeLines("---\noutput: pdf_document\n---\nInit", temp_warmup)
+      rmarkdown::render(temp_warmup, output_file = file.path(tempdir(), "warmup.pdf"), quiet = TRUE)
+    }, silent = TRUE)
+  })
   
   # --- Helper Function: Latex Escape ---
   # Sanitizes text inputs to prevent LaTeX errors during PDF generation.
@@ -752,19 +768,6 @@ server <- function(input, output, session) {
     }
   )
   
-  # --- Event: PDF Download Notification ---
-  # Replaced the modal with a persistent 'warning' notification.
-  # type="warning" sets the color to yellow/orange.
-  # duration=60 ensures it stays 60s until closed by the user.
-  shinyjs::onclick("dl_pdf", {
-    showNotification(
-      "Note: The first PDF generation may take a few minutes. Subsequent PDF downloads will be instantaneous.",
-      type = "warning",
-      duration = 60,
-      closeButton = TRUE
-    )
-  })
-  
   # --- Handler: PDF Download ---
   output$dl_pdf <- downloadHandler(
     filename = function() { paste0(input$quote_id, "_Invoice.pdf") },
@@ -857,7 +860,7 @@ server <- function(input, output, session) {
         "  ) %>%",
         "  select(Name, Amount, Description, Quantity, Total_AUD)",
         "",
-        # Create Latex Table using Kable
+        "# Create Latex Table using Kable",
         "k <- kable(tbl_data, format = 'latex', col.names = c(\"Item\", \"Amount\", \"Description\", \"Quantity\", \"Total Amount [AUD]\"), align = c(\"l\", \"r\", \"l\", \"c\", \"r\"), booktabs = TRUE)",
         "k <- gsub(\"\\\\\\\\toprule\", \"\", k)",
         "k <- gsub(\"\\\\\\\\bottomrule\", \"\", k)",
@@ -866,7 +869,7 @@ server <- function(input, output, session) {
         "",
         "\\vspace{1em}",
         "",
-        # Manually create summary table in Latex
+        "# Manually create summary table in Latex",
         "\\begin{flushright}",
         "\\begin{tabular}{lr}",
         "Total (per batch) & `r params$str_raw_total` \\\\",
