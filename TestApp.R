@@ -104,6 +104,19 @@ process_pricing_logic <- function(file_path) {
     filter(!is.na(Base_Cost)) %>%
     mutate(across(where(is.character), as.character)) 
   
+  # Get Platform and Item pairs
+  item_platform_needed_cols <- c("Brand", "Item", "Platform")
+  df_platform_item <- raw_items[, item_platform_needed_cols]
+  df_platform_item$Platform[is.na(df_platform_item$Platform)] <- "ALL_PLATFORMS"
+  df_platform_item <- df_platform_item %>% 
+    setNames(c("Brand", "Item", "Platform_String")) %>%
+    mutate(Brand = as.character(Brand),
+           Item = as.character(Item),
+           Platform_String = as.character(Platform_String),
+           Platform = strsplit(Platform_String, split = ";", fixed = TRUE)) %>%
+    select(-Platform_String)
+    
+  
   # --- Step 3: Process Services Catalog (Sheet 2) ---
   # Reads the list of processing services.
   raw_services <- read_excel(file_path, sheet = 2, col_names = TRUE)
@@ -115,8 +128,36 @@ process_pricing_logic <- function(file_path) {
     filter(!is.na(Base_Price)) %>%
     mutate(across(where(is.character), as.character))
   
+  # Get Platform and Service pairs
+  process_platform_needed_col <- c("Service", "Platform")
+  df_platform_process <- raw_services[, process_platform_needed_col]
+  df_platform_process <- df_platform_process %>% 
+    setNames(c("Service", "Platform_String")) %>%
+    mutate(Service = as.character(Service),
+           Platform_String = as.character(Platform_String),
+           Platform = strsplit(Platform_String, ";", fixed = TRUE)) %>%
+    select(-Platform_String)
+  
+  # --- Step 4: Processing Discounts (Sheet 4) ---
+  # Reads the list of discounts
+  raw_discounts <- read_excel(file_path, sheet = 4, col_names = TRUE)
+  df_discounts <- raw_discounts %>%
+    setNames(c("Supplier", "Label", "Amount", "End_Date")) %>%
+    mutate(
+      Supplier = as.character(Supplier),
+      Label = as.character(Label),
+      Amount = as.numeric(Amount),
+      End_Date = as.Date(End_Date)
+    ) %>%
+    filter(!is.na(Amount)) %>%
+    mutate(End_Date = replace_na(End_Date, Sys.Date())) %>%
+    filter(End_Date >= Sys.Date()) %>%
+    mutate(Display_Text = paste(Supplier, Label, Amount, sep = " | ")) %>%
+    select(-End_Date)
+  
   # Return structured list containing all processed data and logic maps
-  return(list(items = df_items, services = df_services, logic_proc = processing_logic, logic_item = item_logic))
+  return(list(items = df_items, services = df_services, logic_proc = processing_logic, logic_item = item_logic, 
+              platform_item = df_platform_item, platform_proc = df_platform_process, supplier_discount = df_discounts))
 }
 
 # ==============================================================================
@@ -154,7 +195,7 @@ ui <- page_sidebar(
     # 1. Global Input: File Upload (Always Visible)
     fileInput("master_sheet", "1. Upload Master Spreadsheet (.xlsx)", accept = ".xlsx"),
     
-    # 2. Tab 1 Specific: Filter Items
+    # 2. Tab 2 Specific: Filter Items
     conditionalPanel(
       condition = "input.nav_tabs == 'tab_items'",
       h5("Filter Items"),
@@ -164,7 +205,7 @@ ui <- page_sidebar(
       actionButton("add_items_btn", "Add Selected to Quote", class = "btn-success w-100")
     ),
     
-    # 3. Tab 2 Specific: Filter Services
+    # 3. Tab 3 Specific: Filter Services
     conditionalPanel(
       condition = "input.nav_tabs == 'tab_processing'",
       h5("Filter Services"),
@@ -173,7 +214,7 @@ ui <- page_sidebar(
       actionButton("add_proc_btn", "Add Selected to Quote", class = "btn-success w-100")
     ),
     
-    # 4. Tab 3 Specific: Project Configuration & Metadata
+    # 4. Tab 4 Specific: Project Configuration & Metadata
     # This section contains the Project Type selector and Multiplier Table
     conditionalPanel(
       condition = "input.nav_tabs == 'tab_quote'",
@@ -191,6 +232,16 @@ ui <- page_sidebar(
             tableOutput("multiplier_table") 
         )
       ),
+      hr(),
+      
+      selectInput("supplier_discount_select", "Supplier Discounts (Optional)", choices = c(""), selectize=TRUE),
+      actionButton("apply_supp_disc_btn", "Apply Supplier Discount"),
+      
+      numericInput("percent_discount_input", "Custom Discount (as % between 0-100)", value = 0, min = 0, max = 100),
+      actionButton("apply_percent_discount", "Apply Custom % Discount"),
+      
+      numericInput("amount_discount_input", "Custom Discount (as $)", value = 0, min = 0),
+      actionButton("apply_amount_discount", "Apply Custom $ Discount"),
       
       hr(),
       h5("Project Metadata"),
@@ -210,9 +261,19 @@ ui <- page_sidebar(
   navset_card_underline(
     id = "nav_tabs",
     
-    # Tab 1: Catalog for Consumables
+    # Tab 1: Select platform for filter
     nav_panel(
-      title = "1. Select Items",
+      title = "1. Select Platform",
+      value = "tab_platform",
+      card (
+        card_header("Select Platform"),
+        radioButtons("platform_select", "Platform Selection", choices = "All"),
+      )
+    ),
+    
+    # Tab 2: Catalog for Consumables
+    nav_panel(
+      title = "2. Select Items",
       value = "tab_items",
       card(
         card_header("Items Catalog (Consumables)"),
@@ -220,9 +281,9 @@ ui <- page_sidebar(
       )
     ),
     
-    # Tab 2: Catalog for Services
+    # Tab 3: Catalog for Services
     nav_panel(
-      title = "2. Select Processing",
+      title = "3. Select Processing",
       value = "tab_processing",
       card(
         card_header("Processing Services Catalog"),
@@ -230,9 +291,9 @@ ui <- page_sidebar(
       )
     ),
     
-    # Tab 3: Final Quote Review
+    # Tab 4: Final Quote Review
     nav_panel(
-      title = "3. Final Quote",
+      title = "4. Final Quote",
       value = "tab_quote",
       card(
         full_screen = TRUE, 
@@ -343,14 +404,32 @@ server <- function(input, output, session) {
       brands_sorted <- sort(unique(values$data$items$Brand))
       cats_sorted <- sort(unique(values$data$items$Category))
       groups_sorted <- sort(unique(values$data$services$Group))
+      supplier_discount_labels <- sort(unique(values$data$supplier_discount$Display_Text))
+      
+      platform_sorted <- sort(unique(c(unlist(values$data$platform_item$Platform, use.names = FALSE), 
+                                       unlist(values$data$platform_proc$Platform, use.names = FALSE))))
+      platform_sorted <- platform_sorted[!(platform_sorted %in% c("ALL_PLATFORMS"))]
       
       updateSelectInput(session, "filter_brand", choices = c("All", brands_sorted))
       updateSelectInput(session, "filter_category", choices = c("All", cats_sorted))
       updateSelectInput(session, "filter_group", choices = c("All", groups_sorted))
+      updateRadioButtons(session, "platform_select", choices = c("All", platform_sorted))
+      updateSelectInput(session, "supplier_discount_select", choices = c("", supplier_discount_labels))
+      
       showNotification("Data loaded successfully!", type = "message")
     }, error = function(e) {
       showNotification(paste("Error loading file:", e$message), type = "error")
     })
+  })
+  
+  # --- Event: Switch tabs after Platform Select ---
+  observeEvent(input$platform_select, {
+    if(input$platform_select != "All") {
+      nav_select (
+        id= "nav_tabs",
+        selected = "tab_items"
+      )
+    }
   })
   
   # --- Output: Multiplier Table ---
@@ -378,6 +457,13 @@ server <- function(input, output, session) {
     
     if(input$filter_brand != "All") df <- df %>% filter(Brand == input$filter_brand)
     if(input$filter_category != "All") df <- df %>% filter(Category == input$filter_category)
+    if(input$platform_select != "All") {
+      common_items <- values$data$platform_item %>% 
+        rowwise() %>%
+        filter(any(Platform %in% input$platform_select) | any(Platform == "ALL_PLATFORMS")) %>%
+        ungroup()
+      df <- df %>% semi_join(common_items, by=c("Item", "Brand"))
+    } 
     
     # Retrieve Multipliers
     m_int <- values$data$logic_item[["Internal"]]
@@ -445,6 +531,13 @@ server <- function(input, output, session) {
     req(values$data)
     df <- values$data$services
     if(input$filter_group != "All") df <- df %>% filter(Group == input$filter_group)
+    if(input$platform_select != "All") {
+      common_services <- values$data$platform_proc %>% 
+        rowwise() %>%
+        filter(any(Platform %in% input$platform_select) | any(Platform == "ALL_PLATFORMS")) %>%
+        ungroup()
+      df <- df[df$Service %in% common_services$Service, ]
+    }
     
     # Retrieve Multipliers from processed logic
     m_int <- values$data$logic_proc[["Internal"]]
@@ -550,7 +643,7 @@ server <- function(input, output, session) {
       as.data.frame() 
     
     datatable(display_df,
-              selection = "single",
+              selection = "multiple",
               # Allow editing of Quantity (col 5), Discount % (col 6), and Discount $ (col 7)
               # Disabled: Code(0), Name(1), Desc(2), Type(3), Unit_Price(4), Total(8)
               editable = list(target = "cell", disable = list(columns = c(0, 1, 2, 3, 4, 8))),
@@ -604,6 +697,74 @@ server <- function(input, output, session) {
       pct <- if(gross > 0) (amt / gross) * 100 else 0
       values$cart$Disc_Pct[row_idx] <- pct
       values$cart$Final_Total[row_idx] <- gross - amt
+    }
+  })
+  
+  # --- Observer: Apply Supplier Discount ---
+  observeEvent(input$apply_supp_disc_btn, {
+    req(input$supplier_discount_select, input$table_final_quote_rows_selected)
+    if(input$supplier_discount_select == "") {
+      return()
+    }
+    discount_data <- values$data$supplier_discount %>% filter(Display_Text == input$supplier_discount_select)
+    discount_pct <- discount_data$Amount[1] * 100
+    
+    for (row_idx in input$table_final_quote_rows_selected) {
+      current_row <- values$cart[row_idx, ]
+      
+      values$cart$Disc_Pct[row_idx] <- discount_pct
+      pre_discount_total <- current_row$Unit_Price * current_row$Quantity
+      discount_amt <- pre_discount_total * (discount_pct / 100)
+      values$cart$Disc_Amt[row_idx] <- discount_amt
+      values$cart$Final_Total[row_idx] <- pre_discount_total - discount_amt
+    }
+  })
+  
+  # --- Observer: Apply Custom Discounts ---
+  # Apply % discount
+  observeEvent(input$apply_percent_discount, {
+    req(input$table_final_quote_rows_selected, input$percent_discount_input)
+    if(input$percent_discount_input < 0 | input$percent_discount_input > 100) {
+      showNotification("Input Error: % Discount must be numeric between 0 and 100.", type = "warning")
+      return()
+    }
+    
+    discount_pct <- input$percent_discount_input
+    
+    for (row_idx in input$table_final_quote_rows_selected) {
+      current_row <- values$cart[row_idx, ]
+      values$cart$Disc_Pct[row_idx] <- discount_pct
+      pre_discount_total <- current_row$Unit_Price * current_row$Quantity
+      discount_amt <- pre_discount_total * (discount_pct / 100)
+      values$cart$Disc_Amt[row_idx] <- discount_amt
+      values$cart$Final_Total[row_idx] <- pre_discount_total - discount_amt
+    }
+  })
+  
+  # Apply $ discount
+  observeEvent(input$apply_amount_discount, {
+    req(input$table_final_quote_rows_selected, input$amount_discount_input)
+    if(input$amount_discount_input < 0) {
+      showNotification("Input Error: $ Discount must non-negative.", type = "warning")
+      return()
+    }
+    
+    discount_amt <- input$amount_discount_input
+
+    for (row_idx in input$table_final_quote_rows_selected) {
+      current_row <- values$cart[row_idx, ]
+      values$cart$Disc_Amt[row_idx] <- discount_amt
+      pre_discount_total <- current_row$Unit_Price * current_row$Quantity
+      if(pre_discount_total < discount_amt) {
+        discount_pct <-  100
+        values$cart$Disc_Amt[row_idx] <- pre_discount_total
+        values$cart$Disc_Pct[row_idx] <- discount_pct
+        values$cart$Final_Total[row_idx] <- 0
+      } else {
+        discount_pct <- (discount_amt / pre_discount_total) * 100
+        values$cart$Disc_Pct[row_idx] <- discount_pct
+        values$cart$Final_Total[row_idx] <- pre_discount_total - discount_amt  
+      }
     }
   })
   
