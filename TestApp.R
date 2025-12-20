@@ -3,7 +3,7 @@
 # ==============================================================================
 
 # Define the list of required packages for the application
-packages <- c("shiny", "bslib", "DT", "dplyr", "readxl", "openxlsx", "tidyr", "rmarkdown", "shinyjs", "tinytex")
+packages <- c("shiny", "bslib", "DT", "dplyr", "readxl", "openxlsx", "tidyr", "rmarkdown", "shinyjs", "tinytex", "RColorBrewer")
 
 # Identify which packages are not yet installed on the system
 new_packages <- packages[!(packages %in% installed.packages()[,"Package"])]
@@ -27,6 +27,7 @@ library(tidyr)      # For data tidying (e.g., replace_na)
 library(rmarkdown)  # For generating PDF reports
 library(shinyjs)    # For JavaScript operations (hiding/disabling inputs, onclick events)
 library(tinytex)    # Helper for compiling LaTeX to PDF
+library(RColorBrewer) # For professional color palettes
 
 # ==============================================================================
 # SECTION 2: BACKEND LOGIC (Data Processing)
@@ -80,7 +81,7 @@ process_pricing_logic <- function(file_path) {
   processing_logic <- list(
     "Internal"          = get_proc_val(1), # Corresponds to Row 1
     "Ext.Collaborative" = get_proc_val(2), # Corresponds to Row 2
-    "Ext.RSA"           = get_proc_val(3), # Corresponds to Row 3
+    "Ext.RSA"            = get_proc_val(3), # Corresponds to Row 3
     "Commercial"        = get_proc_val(4)  # Corresponds to Row 4
   )
   
@@ -181,13 +182,55 @@ ui <- page_sidebar(
   theme = custom_theme,
   useShinyjs(), # Enable JavaScript capabilities
   
+  # Custom CSS for UI enhancements
+  tags$head(
+    tags$style(HTML("
+      /* Position all notifications in the bottom right corner */
+      #shiny-notification-panel {
+        top: unset !important;
+        bottom: 20px !important;
+        left: unset !important;
+        right: 20px !important;
+        width: 450px !important;
+      }
+      /* Specifically target the startup notification by unique ID to turn it light yellow */
+      #shiny-notification-startup_notice {
+        background-color: #FFF9C4 !important;
+        color: #333 !important;
+        border: 1px solid #FDD835 !important;
+        font-weight: bold !important;
+        opacity: 1 !important;
+      }
+      /* Layout for platform vertical button stack with tight spacing and increased length */
+      .platform-btn-container {
+        display: flex;
+        flex-direction: column;
+        gap: 4px !important;
+        padding: 10px 15px !important;
+      }
+      .platform-action-btn {
+        width: 800px !important; /* Increased length of the buttons as requested */
+        text-align: left;
+        font-weight: bold;
+        border: none;
+        padding: 8px 25px !important;
+        border-radius: 4px !important;
+        transition: transform 0.1s, opacity 0.2s;
+        box-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+      }
+      .platform-action-btn:hover {
+        transform: scale(1.01);
+        opacity: 0.9;
+      }
+    "))
+  ),
+  
   # --- Sidebar Configuration ---
   sidebar = sidebar(
     width = 350,
     title = NULL,
     
     # 0. Helper: Download Template Button (For users without the source file)
-    # Using margin-bottom: 5px to ensure it sits directly above the file input
     div(style = "margin-bottom: 5px;",
         downloadButton("dl_template", "Download Template (.xlsx)", class = "btn-outline-primary w-100 btn-sm")
     ),
@@ -215,16 +258,13 @@ ui <- page_sidebar(
     ),
     
     # 4. Tab 4 Specific: Project Configuration & Metadata
-    # This section contains the Project Type selector and Multiplier Table
     conditionalPanel(
       condition = "input.nav_tabs == 'tab_quote'",
       h5("Quote Configuration"),
       
-      # Project Type Selector (Required for final calculation)
       selectInput("project_type", "2. Project Type", 
                   choices = c("", "Internal", "Ext.Collaborative", "Ext.RSA", "Commercial")),
       
-      # Display table for current active multipliers (Visible only if Project Type is selected)
       conditionalPanel(
         condition = "input.project_type !== ''",
         div(style = "margin-bottom: 10px; padding-bottom: 0px;", 
@@ -267,7 +307,8 @@ ui <- page_sidebar(
       value = "tab_platform",
       card (
         card_header("Select Platform"),
-        radioButtons("platform_select", "Platform Selection", choices = "All"),
+        # Vertical button stack generated dynamically
+        uiOutput("platform_button_ui")
       )
     ),
     
@@ -276,7 +317,12 @@ ui <- page_sidebar(
       title = "2. Select Items",
       value = "tab_items",
       card(
-        card_header("Items Catalog (Consumables)"),
+        card_header(
+          div(class = "d-flex justify-content-between align-items-center",
+              span("Items Catalog (Consumables)"),
+              actionButton("add_items_btn_top", "Add Selected to Quote", class = "btn-success btn-sm")
+          )
+        ),
         DTOutput("table_items_catalog")
       )
     ),
@@ -286,7 +332,12 @@ ui <- page_sidebar(
       title = "3. Select Processing",
       value = "tab_processing",
       card(
-        card_header("Processing Services Catalog"),
+        card_header(
+          div(class = "d-flex justify-content-between align-items-center",
+              span("Processing Services Catalog"),
+              actionButton("add_proc_btn_top", "Add Selected to Quote", class = "btn-success btn-sm")
+          )
+        ),
         DTOutput("table_proc_catalog")
       )
     ),
@@ -299,21 +350,18 @@ ui <- page_sidebar(
         full_screen = TRUE, 
         card_header("Review & Edit Quote"),
         card_body(
-          # Conditional Panel: Only show table if Project Type is selected
           conditionalPanel(
             condition = "input.project_type !== ''",
             
-            # Action buttons for the quote table
             div(class = "d-flex justify-content-between align-items-center",
                 div(actionButton("remove_row_btn", "Remove Selected Row", class = "btn-danger btn-sm", icon = icon("trash"))),
                 div(downloadButton("dl_excel", "Download .xlsx", class = "btn-secondary btn-sm"),
                     downloadButton("dl_pdf", "Download PDF Invoice", class = "btn-primary btn-sm"))
             ),
             hr(),
-            DTOutput("table_final_quote") # Editable Data Table
+            DTOutput("table_final_quote") 
           ),
           
-          # Warning Message: Shown if no project type is selected
           conditionalPanel(
             condition = "input.project_type == ''",
             div(class = "alert alert-warning", 
@@ -322,7 +370,7 @@ ui <- page_sidebar(
         ),
         card_footer(
           div(style = "text-align: right; font-size: 1.2rem; font-weight: bold;",
-              textOutput("grand_total_display") # Display grand total text
+              textOutput("grand_total_display") 
           )
         )
       )
@@ -336,9 +384,18 @@ ui <- page_sidebar(
 
 server <- function(input, output, session) {
   
+  # --- Startup Notification ---
+  # Specific ID used for custom CSS yellow background
+  observe({
+    showNotification(
+      "Please use the most up to date master spreadsheet in the download link at the top left hand side of this tool",
+      duration = 60,
+      type = "default",
+      id = "startup_notice"
+    )
+  })
+  
   # --- Background Warm-up for PDF Engine ---
-  # Silently renders a minimal PDF at startup to initialize LaTeX packages and fonts.
-  # This avoids the long lead time during the first user-requested download.
   observe({
     try({
       temp_warmup <- file.path(tempdir(), "warmup.Rmd")
@@ -348,7 +405,6 @@ server <- function(input, output, session) {
   })
   
   # --- Helper Function: Latex Escape ---
-  # Sanitizes text inputs to prevent LaTeX errors during PDF generation.
   escape_latex <- function(x) {
     if (is.null(x) || is.na(x)) return("NA")
     x <- as.character(x)
@@ -359,17 +415,10 @@ server <- function(input, output, session) {
     return(x)
   }
   
-  # Check availability of tinytex for PDF generation
-  if (!requireNamespace("tinytex", quietly = TRUE)) {
-    showNotification("Error: 'tinytex' package is missing.", type = "error", duration = NULL)
-  }
-  
   # --- Reactive Values ---
-  # 'values' stores the application state.
   values <- reactiveValues(
-    data = NULL, # Stores the data loaded from the Excel file
-    # Stores the "Shopping Cart". 
-    # Note: Includes Base Cost data to allow recalculation when Project Type changes.
+    data = NULL,
+    platform_select = "All", 
     cart = data.frame(
       Cart_ID = character(),
       Product_Code = character(),
@@ -377,13 +426,9 @@ server <- function(input, output, session) {
       Description = character(), 
       Type = character(),
       Category = character(), 
-      
-      # Pricing Calculation Fields
-      Base_Ref = numeric(),  # Stores Base Cost/Price
-      Add_Ref = numeric(),   # Stores Additional Cost
+      Base_Ref = numeric(),
+      Add_Ref = numeric(),
       Is_Constant = logical(),
-      
-      # Display Fields
       Unit_Price = numeric(),
       Quantity = numeric(),
       Disc_Pct = numeric(),
@@ -397,23 +442,16 @@ server <- function(input, output, session) {
   observeEvent(input$master_sheet, {
     req(input$master_sheet)
     tryCatch({
-      # Execute the data processing logic on the uploaded file
       values$data <- process_pricing_logic(input$master_sheet$datapath)
       
-      # Populate sidebar filters based on the loaded data
       protocols_sorted <- sort(unique(values$data$items$Protocol))
       cats_sorted <- sort(unique(values$data$items$Category))
       groups_sorted <- sort(unique(values$data$services$Group))
       supplier_discount_labels <- sort(unique(values$data$supplier_discount$Display_Text))
       
-      platform_sorted <- sort(unique(c(unlist(values$data$platform_item$Platform, use.names = FALSE), 
-                                       unlist(values$data$platform_proc$Platform, use.names = FALSE))))
-      platform_sorted <- platform_sorted[!(platform_sorted %in% c("ALL_PLATFORMS"))]
-      
       updateSelectInput(session, "filter_protocol", choices = c("All", protocols_sorted))
       updateSelectInput(session, "filter_category", choices = c("All", cats_sorted))
       updateSelectInput(session, "filter_group", choices = c("All", groups_sorted))
-      updateRadioButtons(session, "platform_select", choices = c("All", platform_sorted))
       updateSelectInput(session, "supplier_discount_select", choices = c("", supplier_discount_labels))
       
       showNotification("Data loaded successfully!", type = "message")
@@ -422,18 +460,48 @@ server <- function(input, output, session) {
     })
   })
   
-  # --- Event: Switch tabs after Platform Select ---
-  observeEvent(input$platform_select, {
-    if(input$platform_select != "All") {
-      nav_select (
-        id= "nav_tabs",
-        selected = "tab_items"
-      )
-    }
+  # --- UI Output: Platform Button Stack ---
+  # Generates a vertical list of rectangular buttons with light-to-dark blue gradient
+  output$platform_button_ui <- renderUI({
+    req(values$data)
+    
+    platforms <- sort(unique(c(unlist(values$data$platform_item$Platform, use.names = FALSE), 
+                               unlist(values$data$platform_proc$Platform, use.names = FALSE))))
+    platforms <- platforms[!(platforms %in% c("ALL_PLATFORMS"))]
+    choices <- c("All", platforms)
+    
+    # Use professional Blue palette for the gradient
+    n_colors <- length(choices)
+    pal <- colorRampPalette(brewer.pal(9, "Blues"))(n_colors + 1)
+    
+    div(class = "platform-btn-container",
+        lapply(seq_along(choices), function(i) {
+          btn_id <- paste0("btn_platform_", gsub("[^a-zA-Z0-9]", "_", choices[i]))
+          onclick_code <- sprintf("Shiny.setInputValue('btn_platform_click', '%s', {priority: 'event'});", choices[i])
+          
+          # Gradient progresses through shades of blue
+          bg_color <- pal[i]
+          text_color <- ifelse(i > n_colors/2 + 1, "white", "black")
+          
+          tags$button(
+            choices[i],
+            id = btn_id,
+            class = "platform-action-btn",
+            style = sprintf("background-color: %s; color: %s;", bg_color, text_color),
+            onclick = onclick_code
+          )
+        })
+    )
+  })
+  
+  # --- Observer: Handle Platform Button Clicks ---
+  # If 'All' is selected, filter is bypassed and user moves to next step
+  observeEvent(input$btn_platform_click, {
+    values$platform_select <- input$btn_platform_click
+    nav_select(id = "nav_tabs", selected = "tab_items")
   })
   
   # --- Output: Multiplier Table ---
-  # Shows users which multipliers are currently applied based on Project Type.
   output$multiplier_table <- renderTable({
     req(values$data, input$project_type)
     if(input$project_type == "") return(NULL)
@@ -450,26 +518,25 @@ server <- function(input, output, session) {
   }, striped = TRUE, hover = TRUE, bordered = TRUE, width = "100%")
   
   # --- Logic: Calculate Item Prices (Tab 1 Display) ---
-  # Calculates both Internal and External prices for initial display.
   output$table_items_catalog <- renderDT({
     req(values$data)
     df <- values$data$items
     
     if(input$filter_protocol != "All") df <- df %>% filter(Protocol == input$filter_protocol)
     if(input$filter_category != "All") df <- df %>% filter(Category == input$filter_category)
-    if(input$platform_select != "All") {
+    
+    # Filter only if a specific platform (not 'All') is selected
+    if(values$platform_select != "All") {
       common_items <- values$data$platform_item %>% 
         rowwise() %>%
-        filter(any(Platform %in% input$platform_select) | any(Platform == "ALL_PLATFORMS")) %>%
+        filter(any(Platform %in% values$platform_select) | any(Platform == "ALL_PLATFORMS")) %>%
         ungroup()
       df <- df %>% semi_join(common_items, by=c("Item", "Protocol"))
     } 
     
-    # Retrieve Multipliers
     m_int <- values$data$logic_item[["Internal"]]
     m_ext <- values$data$logic_item[["External"]]
     
-    # Calculate columns for display
     df_display <- df %>% 
       mutate(
         Price_Internal = ifelse(Is_Constant, Base_Cost + Add_Cost, (Base_Cost * m_int) + Add_Cost),
@@ -487,59 +554,64 @@ server <- function(input, output, session) {
   })
   
   # --- Event: Add Items to Cart ---
-  observeEvent(input$add_items_btn, {
-    if (is.null(input$table_items_catalog_rows_selected)) {
-      showNotification("Please select items first!", type = "warning")
-      return()
-    }
+  observe({
+    input$add_items_btn
+    input$add_items_btn_top
     
-    # Re-fetch the filtered dataframe to ensure indices match
-    df_full <- values$data$items
-    if(input$filter_protocol != "All") df_full <- df_full %>% filter(Protocol == input$filter_protocol)
-    if(input$filter_category != "All") df_full <- df_full %>% filter(Category == input$filter_category)
-    
-    selected_indices <- input$table_items_catalog_rows_selected
-    items_to_add <- df_full[selected_indices, ]
-    
-    # Prevent adding duplicates
-    existing_codes <- values$cart$Product_Code
-    items_to_add_unique <- items_to_add %>% filter(!Product_Code %in% existing_codes)
-    
-    if (nrow(items_to_add_unique) == 0) return()
-    
-    # Structure data for the cart (Store Base Costs for dynamic recalculation)
-    new_entries <- items_to_add_unique %>%
-      mutate(
-        Cart_ID = paste0("I-", as.numeric(Sys.time()), "-", row_number()),
-        Type = "Item",
-        Quantity = 1, Disc_Pct = 0, Disc_Amt = 0,
-        Base_Ref = Base_Cost,
-        Add_Ref = Add_Cost,
-        # Initialize Unit_Price to 0 until Project Type is selected
-        Unit_Price = 0, Final_Total = 0
-      ) %>%
-      select(Cart_ID, Product_Code, Name = Item, Description, Type, Category, 
-             Base_Ref, Add_Ref, Is_Constant, Unit_Price, Quantity, Disc_Pct, Disc_Amt, Final_Total)
-    
-    values$cart <- bind_rows(values$cart, new_entries) %>% as.data.frame()
-    showNotification(paste(nrow(new_entries), "new items added."), type = "message")
+    isolate({
+      if (is.null(input$table_items_catalog_rows_selected)) return()
+      
+      df_full <- values$data$items
+      if(input$filter_protocol != "All") df_full <- df_full %>% filter(Protocol == input$filter_protocol)
+      if(input$filter_category != "All") df_full <- df_full %>% filter(Category == input$filter_category)
+      
+      if(values$platform_select != "All") {
+        common_items <- values$data$platform_item %>% 
+          rowwise() %>%
+          filter(any(Platform %in% values$platform_select) | any(Platform == "ALL_PLATFORMS")) %>%
+          ungroup()
+        df_full <- df_full %>% semi_join(common_items, by=c("Item", "Protocol"))
+      } 
+      
+      selected_indices <- input$table_items_catalog_rows_selected
+      items_to_add <- df_full[selected_indices, ]
+      existing_codes <- values$cart$Product_Code
+      items_to_add_unique <- items_to_add %>% filter(!Product_Code %in% existing_codes)
+      
+      if (nrow(items_to_add_unique) == 0) return()
+      
+      new_entries <- items_to_add_unique %>%
+        mutate(
+          Cart_ID = paste0("I-", as.numeric(Sys.time()), "-", row_number()),
+          Type = "Item",
+          Quantity = 1, Disc_Pct = 0, Disc_Amt = 0,
+          Base_Ref = Base_Cost,
+          Add_Ref = Add_Cost,
+          Unit_Price = 0, Final_Total = 0
+        ) %>%
+        select(Cart_ID, Product_Code, Name = Item, Description, Type, Category, 
+               Base_Ref, Add_Ref, Is_Constant, Unit_Price, Quantity, Disc_Pct, Disc_Amt, Final_Total)
+      
+      values$cart <- bind_rows(values$cart, new_entries) %>% as.data.frame()
+      showNotification(paste(nrow(new_entries), "new items added."), type = "message")
+    })
   })
   
   # --- Logic: Calculate Service Prices (Tab 2 Display) ---
-  # Calculates 4 specific columns for display based on Sheet 3 Logic.
   output$table_proc_catalog <- renderDT({
     req(values$data)
     df <- values$data$services
     if(input$filter_group != "All") df <- df %>% filter(Group == input$filter_group)
-    if(input$platform_select != "All") {
+    
+    # Filter only if a specific platform (not 'All') is selected
+    if(values$platform_select != "All") {
       common_services <- values$data$platform_proc %>% 
         rowwise() %>%
-        filter(any(Platform %in% input$platform_select) | any(Platform == "ALL_PLATFORMS")) %>%
+        filter(any(Platform %in% values$platform_select) | any(Platform == "ALL_PLATFORMS")) %>%
         ungroup()
       df <- df[df$Service %in% common_services$Service, ]
     }
     
-    # Retrieve Multipliers from processed logic
     m_int <- values$data$logic_proc[["Internal"]]
     m_col <- values$data$logic_proc[["Ext.Collaborative"]]
     m_rsa <- values$data$logic_proc[["Ext.RSA"]]
@@ -563,61 +635,63 @@ server <- function(input, output, session) {
   })
   
   # --- Event: Add Services to Cart ---
-  observeEvent(input$add_proc_btn, {
-    if (is.null(input$table_proc_catalog_rows_selected)) {
-      showNotification("Please select services first!", type = "warning")
-      return()
-    }
+  observe({
+    input$add_proc_btn
+    input$add_proc_btn_top
     
-    df_full <- values$data$services
-    if(input$filter_group != "All") df_full <- df_full %>% filter(Group == input$filter_group)
-    
-    selected_indices <- input$table_proc_catalog_rows_selected
-    items_to_add <- df_full[selected_indices, ]
-    
-    existing_names <- values$cart$Name
-    items_to_add_unique <- items_to_add %>% filter(!Service %in% existing_names)
-    
-    if (nrow(items_to_add_unique) == 0) return()
-    
-    new_entries <- items_to_add_unique %>%
-      mutate(
-        Cart_ID = paste0("P-", as.numeric(Sys.time()), "-", row_number()),
-        Type = "Processing",
-        Category = Group, 
-        Quantity = 1, Disc_Pct = 0, Disc_Amt = 0,
-        Product_Code = "SVC",
-        Base_Ref = Base_Price,
-        Add_Ref = 0,
-        Is_Constant = FALSE,
-        Unit_Price = 0, Final_Total = 0
-      ) %>%
-      select(Cart_ID, Product_Code, Name = Service, Description, Type, Category, 
-             Base_Ref, Add_Ref, Is_Constant, Unit_Price, Quantity, Disc_Pct, Disc_Amt, Final_Total)
-    
-    values$cart <- bind_rows(values$cart, new_entries) %>% as.data.frame()
-    showNotification(paste(nrow(new_entries), "new services added."), type = "message")
+    isolate({
+      if (is.null(input$table_proc_catalog_rows_selected)) return()
+      
+      df_full <- values$data$services
+      if(input$filter_group != "All") df_full <- df_full %>% filter(Group == input$filter_group)
+      
+      if(values$platform_select != "All") {
+        common_services <- values$data$platform_proc %>% 
+          rowwise() %>%
+          filter(any(Platform %in% values$platform_select) | any(Platform == "ALL_PLATFORMS")) %>%
+          ungroup()
+        df_full <- df_full[df_full$Service %in% common_services$Service, ]
+      }
+      
+      selected_indices <- input$table_proc_catalog_rows_selected
+      items_to_add <- df_full[selected_indices, ]
+      existing_names <- values$cart$Name
+      items_to_add_unique <- items_to_add %>% filter(!Service %in% existing_names)
+      
+      if (nrow(items_to_add_unique) == 0) return()
+      
+      new_entries <- items_to_add_unique %>%
+        mutate(
+          Cart_ID = paste0("P-", as.numeric(Sys.time()), "-", row_number()),
+          Type = "Processing",
+          Category = Group, 
+          Quantity = 1, Disc_Pct = 0, Disc_Amt = 0,
+          Product_Code = "SVC",
+          Base_Ref = Base_Price,
+          Add_Ref = 0,
+          Is_Constant = FALSE,
+          Unit_Price = 0, Final_Total = 0
+        ) %>%
+        select(Cart_ID, Product_Code, Name = Service, Description, Type, Category, 
+               Base_Ref, Add_Ref, Is_Constant, Unit_Price, Quantity, Disc_Pct, Disc_Amt, Final_Total)
+      
+      values$cart <- bind_rows(values$cart, new_entries) %>% as.data.frame()
+      showNotification(paste(nrow(new_entries), "new services added."), type = "message")
+    })
   })
   
   # --- Observer: Recalculate Cart when Project Type Changes ---
-  # This logic ensures that when the user selects a project type in Tab 3,
-  # all items in the cart are updated with the correct pricing.
   observeEvent(input$project_type, {
     req(values$data, nrow(values$cart) > 0)
-    
-    # If selection is empty, we cannot calculate
     if(input$project_type == "") return()
     
     ptype <- input$project_type
-    
-    # Determine Multipliers based on new project type
     rate_type_item <- if(ptype == "Internal") "Internal" else "External"
     mult_item <- values$data$logic_item[[rate_type_item]]
     mult_proc <- values$data$logic_proc[[ptype]]
     
-    if(is.null(mult_proc)) mult_proc <- 1 # Safety fallback
+    if(is.null(mult_proc)) mult_proc <- 1 
     
-    # Apply logic row by row (vectorized)
     values$cart <- values$cart %>%
       mutate(
         Unit_Price = case_when(
@@ -626,17 +700,16 @@ server <- function(input, output, session) {
           Type == "Processing" ~ Base_Ref * mult_proc,
           TRUE ~ 0
         ),
-        # Recalculate Totals maintaining quantity and discount
         Gross = Unit_Price * Quantity,
         Disc_Amt = Gross * (Disc_Pct / 100),
         Final_Total = Gross - Disc_Amt
       ) %>%
-      select(-Gross) # Remove temp column
+      select(-Gross) 
   })
   
   # --- Output: Final Quote Table ---
   output$table_final_quote <- renderDT({
-    req(input$project_type) # Only show if project type selected
+    req(input$project_type) 
     
     display_df <- values$cart %>% 
       select(Product_Code, Name, Description, Type, Unit_Price, Quantity, Disc_Pct, Disc_Amt, Final_Total) %>%
@@ -644,8 +717,6 @@ server <- function(input, output, session) {
     
     datatable(display_df,
               selection = "multiple",
-              # Allow editing of Quantity (col 5), Discount % (col 6), and Discount $ (col 7)
-              # Disabled: Code(0), Name(1), Desc(2), Type(3), Unit_Price(4), Total(8)
               editable = list(target = "cell", disable = list(columns = c(0, 1, 2, 3, 4, 8))),
               options = list(
                 pageLength = 25, 
@@ -659,7 +730,6 @@ server <- function(input, output, session) {
   }, server = FALSE) 
   
   # --- Event: Edit Quote Table Cells ---
-  # Dynamic recalculation when user edits Quantity or Discount fields.
   observeEvent(input$table_final_quote_cell_edit, {
     info <- input$table_final_quote_cell_edit
     row_idx <- info$row
@@ -670,7 +740,6 @@ server <- function(input, output, session) {
     price <- current_row$Unit_Price
     qty   <- current_row$Quantity
     
-    # Case: Quantity Edited (Index 5)
     if (col_idx == 5) {
       qty <- new_val
       values$cart$Quantity[row_idx] <- qty
@@ -679,8 +748,6 @@ server <- function(input, output, session) {
       disc_amt <- gross * (pct / 100)
       values$cart$Disc_Amt[row_idx] <- disc_amt
       values$cart$Final_Total[row_idx] <- gross - disc_amt
-      
-      # Case: Discount Percent Edited (Index 6)
     } else if (col_idx == 6) { 
       pct <- new_val
       values$cart$Disc_Pct[row_idx] <- pct
@@ -688,8 +755,6 @@ server <- function(input, output, session) {
       disc_amt <- gross * (pct / 100)
       values$cart$Disc_Amt[row_idx] <- disc_amt
       values$cart$Final_Total[row_idx] <- gross - disc_amt
-      
-      # Case: Discount Amount Edited (Index 7)
     } else if (col_idx == 7) { 
       amt <- new_val
       values$cart$Disc_Amt[row_idx] <- amt
@@ -711,7 +776,6 @@ server <- function(input, output, session) {
     
     for (row_idx in input$table_final_quote_rows_selected) {
       current_row <- values$cart[row_idx, ]
-      
       values$cart$Disc_Pct[row_idx] <- discount_pct
       pre_discount_total <- current_row$Unit_Price * current_row$Quantity
       discount_amt <- pre_discount_total * (discount_pct / 100)
@@ -721,7 +785,6 @@ server <- function(input, output, session) {
   })
   
   # --- Observer: Apply Custom Discounts ---
-  # Apply % discount
   observeEvent(input$apply_percent_discount, {
     req(input$table_final_quote_rows_selected, input$percent_discount_input)
     if(input$percent_discount_input < 0 | input$percent_discount_input > 100) {
@@ -741,7 +804,6 @@ server <- function(input, output, session) {
     }
   })
   
-  # Apply $ discount
   observeEvent(input$apply_amount_discount, {
     req(input$table_final_quote_rows_selected, input$amount_discount_input)
     if(input$amount_discount_input < 0) {
@@ -789,11 +851,9 @@ server <- function(input, output, session) {
   # ============================================================================
   
   # --- Handler: Template Download ---
-  # Allows users to download the template file directly from the app
   output$dl_template <- downloadHandler(
     filename = "master_spreadsheet_25_26_summer.xlsx",
     content = function(file) {
-      # Copies the file from the deployment bundle to the user's download stream
       file.copy("master_spreadsheet_25_26_summer.xlsx", file)
     }
   )
@@ -803,13 +863,10 @@ server <- function(input, output, session) {
     filename = function() { paste0(input$quote_id, "_Quote.xlsx") },
     content = function(file) {
       df_cart <- values$cart
-      
-      # Prepare data table for export
       df_table <- df_cart %>%
         mutate(Total_Amount_AUD = Unit_Price * Quantity) %>%
         select(Name, Unit_Price, Description, Quantity, Total_Amount_AUD) 
       
-      # Calculate totals for the report
       raw_total_batch <- sum(df_table$Total_Amount_AUD, na.rm = TRUE)
       discount_total_batch <- sum(df_cart$Disc_Amt, na.rm = TRUE)
       net_total_batch <- raw_total_batch - discount_total_batch
@@ -818,12 +875,10 @@ server <- function(input, output, session) {
       project_total <- net_total_batch * batches
       batch_label <- ifelse(batches > 1, "batches", "batch")
       
-      # Create Workbook using 'openxlsx'
       wb <- createWorkbook()
       addWorksheet(wb, "Invoice")
       showGridLines(wb, "Invoice", showGridLines = FALSE) 
       
-      # Define Formatting Styles
       style_header_title <- createStyle(fontSize = 14, fontColour = "#225EA8", textDecoration = "bold")
       style_italic <- createStyle(textDecoration = "italic")
       style_bold <- createStyle(textDecoration = "bold")
@@ -832,13 +887,11 @@ server <- function(input, output, session) {
       style_line_thin <- createStyle(border = "bottom", borderColour = "black", borderStyle = "thin")
       style_grand_total <- createStyle(fontSize = 12, textDecoration = "bold")
       
-      # Write Headers
       writeData(wb, "Invoice", input$meta_title, startRow = 1, startCol = 1)
       addStyle(wb, "Invoice", style_header_title, rows = 1, cols = 1)
       writeData(wb, "Invoice", "Project based cost estimate", startRow = 2, startCol = 1)
       addStyle(wb, "Invoice", style_italic, rows = 2, cols = 1)
       
-      # Write Metadata Field Logic
       meta_fields <- list(
         c("Date:", input$meta_date),
         c("Quote ID:", input$quote_id),
@@ -853,7 +906,6 @@ server <- function(input, output, session) {
       )
       
       row_ptr <- 4
-      # Manually write metadata rows with styling
       writeData(wb, "Invoice", paste(meta_fields[[1]][1], meta_fields[[1]][2]), startRow = row_ptr, startCol = 1); addStyle(wb, "Invoice", style_bold, rows = row_ptr, cols = 1); row_ptr <- row_ptr + 1
       writeData(wb, "Invoice", paste(meta_fields[[2]][1], meta_fields[[2]][2]), startRow = row_ptr, startCol = 1); addStyle(wb, "Invoice", style_bold, rows = row_ptr, cols = 1); row_ptr <- row_ptr + 2
       
@@ -863,7 +915,6 @@ server <- function(input, output, session) {
         row_ptr <- row_ptr + 1
       }
       
-      # Write Itemized Table
       start_tbl_row <- row_ptr + 2
       writeData(wb, "Invoice", "Cost per batch", startRow = start_tbl_row, startCol = 1)
       addStyle(wb, "Invoice", createStyle(fontSize=12, textDecoration="bold"), rows=start_tbl_row, cols=1)
@@ -886,7 +937,6 @@ server <- function(input, output, session) {
       
       addStyle(wb, "Invoice", style_line_bold, rows = last_row, cols = 1:5, stack = TRUE)
       
-      # Write Total Summary
       row_sum_start <- last_row + 1
       writeData(wb, "Invoice", "Total (per batch)", startRow = row_sum_start, startCol = 1)
       writeData(wb, "Invoice", raw_total_batch, startRow = row_sum_start, startCol = 5)
@@ -912,7 +962,6 @@ server <- function(input, output, session) {
       addStyle(wb, "Invoice", style_grand_total, rows = row_grand, cols = 5)
       addStyle(wb, "Invoice", style_currency, rows = row_grand, cols = 5)
       
-      # Write Footer text
       row_footer <- row_grand + 3
       footer_text <- c(
         "All prices are in AUD and exclude GST.",
@@ -937,8 +986,6 @@ server <- function(input, output, session) {
       if (!tinytex::is_tinytex()) tinytex::install_tinytex(force = TRUE)
       
       df_invoice <- values$cart
-      
-      # Recalculate totals for the PDF context
       raw_total_batch <- sum(df_invoice$Unit_Price * df_invoice$Quantity, na.rm = TRUE)
       discount_total_batch <- sum(df_invoice$Disc_Amt, na.rm = TRUE)
       net_total_batch <- raw_total_batch - discount_total_batch
@@ -947,9 +994,7 @@ server <- function(input, output, session) {
       project_total <- net_total_batch * batches
       batch_label <- ifelse(batches > 1, "batches", "batch")
       
-      # --- Define RMarkdown Template Internally ---
-      # This block constructs the .Rmd content as a string directly in code.
-      bt <- strrep("`", 3) # Creates backticks for code blocks
+      bt <- strrep("`", 3) 
       chunk_header <- paste0(bt, "{r setup, include=FALSE}")
       chunk_table  <- paste0(bt, "{r table, results='asis'}")
       chunk_end    <- bt
@@ -957,7 +1002,7 @@ server <- function(input, output, session) {
       rmd_content <- paste(
         "---",
         "output: pdf_document",
-        "params:", # Define parameters to be passed from Shiny
+        "params:",
         "  date: NA",
         "  quote_id: NA",
         "  proj_id: NA",
@@ -1021,7 +1066,6 @@ server <- function(input, output, session) {
         "  ) %>%",
         "  select(Name, Amount, Description, Quantity, Total_AUD)",
         "",
-        "# Create Latex Table using Kable",
         "k <- kable(tbl_data, format = 'latex', col.names = c(\"Item\", \"Amount\", \"Description\", \"Quantity\", \"Total Amount [AUD]\"), align = c(\"l\", \"r\", \"l\", \"c\", \"r\"), booktabs = TRUE)",
         "k <- gsub(\"\\\\\\\\toprule\", \"\", k)",
         "k <- gsub(\"\\\\\\\\bottomrule\", \"\", k)",
@@ -1030,7 +1074,6 @@ server <- function(input, output, session) {
         "",
         "\\vspace{1em}",
         "",
-        "# Manually create summary table in Latex",
         "\\begin{flushright}",
         "\\begin{tabular}{lr}",
         "Total (per batch) & `r params$str_raw_total` \\\\",
@@ -1054,7 +1097,6 @@ server <- function(input, output, session) {
       temp_rmd <- file.path(tempdir(), "invoice.Rmd")
       writeLines(rmd_content, temp_rmd)
       
-      # Pass data to the RMarkdown Params
       params_list <- list(
         date = escape_latex(input$meta_date),
         quote_id = escape_latex(input$quote_id),
@@ -1074,7 +1116,6 @@ server <- function(input, output, session) {
         batch_label = batch_label
       )
       
-      # Render the PDF
       tryCatch({
         rmarkdown::render(temp_rmd, output_file = file, params = params_list, envir = new.env(parent = globalenv()))
       }, error = function(e) {
