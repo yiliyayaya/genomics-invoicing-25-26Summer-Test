@@ -90,7 +90,7 @@ process_pricing_logic <- function(file_path) {
   
   df_items <- raw_items %>%
     select(1:8) %>% 
-    setNames(c("Product_Code", "Brand", "Item", "Category", "Description", "Base_Cost", "Add_Cost", "Is_Constant")) %>%
+    setNames(c("Product_Code", "Protocol", "Item", "Category", "Description", "Base_Cost", "Add_Cost", "Is_Constant")) %>%
     mutate(
       Base_Cost = as.numeric(Base_Cost),
       Add_Cost = as.numeric(replace_na(Add_Cost, 0)),
@@ -105,17 +105,17 @@ process_pricing_logic <- function(file_path) {
     mutate(across(where(is.character), as.character)) 
   
   # Get Platform and Item pairs
-  item_platform_needed_cols <- c("Brand", "Item", "Platform")
+  item_platform_needed_cols <- c("Protocol", "Item", "Platform")
   df_platform_item <- raw_items[, item_platform_needed_cols]
   df_platform_item$Platform[is.na(df_platform_item$Platform)] <- "ALL_PLATFORMS"
   df_platform_item <- df_platform_item %>% 
-    setNames(c("Brand", "Item", "Platform_String")) %>%
-    mutate(Brand = as.character(Brand),
+    setNames(c("Protocol", "Item", "Platform_String")) %>%
+    mutate(Protocol = as.character(Protocol),
            Item = as.character(Item),
            Platform_String = as.character(Platform_String),
            Platform = strsplit(Platform_String, split = ";", fixed = TRUE)) %>%
     select(-Platform_String)
-    
+  
   
   # --- Step 3: Process Services Catalog (Sheet 2) ---
   # Reads the list of processing services.
@@ -199,7 +199,7 @@ ui <- page_sidebar(
     conditionalPanel(
       condition = "input.nav_tabs == 'tab_items'",
       h5("Filter Items"),
-      selectInput("filter_brand", "Filter Brand", choices = "All", selectize = TRUE), 
+      selectInput("filter_protocol", "Filter Protocol", choices = "All", selectize = TRUE), 
       selectInput("filter_category", "Filter Category", choices = "All"),
       div(class = "text-muted small mb-2", "Tip: Select items in the table, then click 'Add'."),
       actionButton("add_items_btn", "Add Selected to Quote", class = "btn-success w-100")
@@ -401,7 +401,7 @@ server <- function(input, output, session) {
       values$data <- process_pricing_logic(input$master_sheet$datapath)
       
       # Populate sidebar filters based on the loaded data
-      brands_sorted <- sort(unique(values$data$items$Brand))
+      protocols_sorted <- sort(unique(values$data$items$Protocol))
       cats_sorted <- sort(unique(values$data$items$Category))
       groups_sorted <- sort(unique(values$data$services$Group))
       supplier_discount_labels <- sort(unique(values$data$supplier_discount$Display_Text))
@@ -410,7 +410,7 @@ server <- function(input, output, session) {
                                        unlist(values$data$platform_proc$Platform, use.names = FALSE))))
       platform_sorted <- platform_sorted[!(platform_sorted %in% c("ALL_PLATFORMS"))]
       
-      updateSelectInput(session, "filter_brand", choices = c("All", brands_sorted))
+      updateSelectInput(session, "filter_protocol", choices = c("All", protocols_sorted))
       updateSelectInput(session, "filter_category", choices = c("All", cats_sorted))
       updateSelectInput(session, "filter_group", choices = c("All", groups_sorted))
       updateRadioButtons(session, "platform_select", choices = c("All", platform_sorted))
@@ -455,14 +455,14 @@ server <- function(input, output, session) {
     req(values$data)
     df <- values$data$items
     
-    if(input$filter_brand != "All") df <- df %>% filter(Brand == input$filter_brand)
+    if(input$filter_protocol != "All") df <- df %>% filter(Protocol == input$filter_protocol)
     if(input$filter_category != "All") df <- df %>% filter(Category == input$filter_category)
     if(input$platform_select != "All") {
       common_items <- values$data$platform_item %>% 
         rowwise() %>%
         filter(any(Platform %in% input$platform_select) | any(Platform == "ALL_PLATFORMS")) %>%
         ungroup()
-      df <- df %>% semi_join(common_items, by=c("Item", "Brand"))
+      df <- df %>% semi_join(common_items, by=c("Item", "Protocol"))
     } 
     
     # Retrieve Multipliers
@@ -475,13 +475,13 @@ server <- function(input, output, session) {
         Price_Internal = ifelse(Is_Constant, Base_Cost + Add_Cost, (Base_Cost * m_int) + Add_Cost),
         Price_External = ifelse(Is_Constant, Base_Cost + Add_Cost, (Base_Cost * m_ext) + Add_Cost)
       ) %>%
-      select(Product_Code, Brand, Item, Description, Price_Internal, Price_External)
+      select(Product_Code, Protocol, Item, Description, Price_Internal, Price_External)
     
     datatable(
       df_display,
       selection = "multiple",
       options = list(pageLength = 10),
-      colnames = c("Code", "Brand", "Item", "Description", "Internal Price", "External Price")
+      colnames = c("Code", "Protocol", "Item", "Description", "Internal Price", "External Price")
     ) %>%
       formatCurrency(c("Price_Internal", "Price_External"))
   })
@@ -495,7 +495,7 @@ server <- function(input, output, session) {
     
     # Re-fetch the filtered dataframe to ensure indices match
     df_full <- values$data$items
-    if(input$filter_brand != "All") df_full <- df_full %>% filter(Brand == input$filter_brand)
+    if(input$filter_protocol != "All") df_full <- df_full %>% filter(Protocol == input$filter_protocol)
     if(input$filter_category != "All") df_full <- df_full %>% filter(Category == input$filter_category)
     
     selected_indices <- input$table_items_catalog_rows_selected
@@ -750,7 +750,7 @@ server <- function(input, output, session) {
     }
     
     discount_amt <- input$amount_discount_input
-
+    
     for (row_idx in input$table_final_quote_rows_selected) {
       current_row <- values$cart[row_idx, ]
       values$cart$Disc_Amt[row_idx] <- discount_amt
