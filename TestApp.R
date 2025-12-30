@@ -23,138 +23,6 @@ library(tinytex)    # Helper for compiling LaTeX to PDF
 library(RColorBrewer) # For professional color palettes
 
 # ==============================================================================
-# SECTION 2: BACKEND LOGIC (Data Processing)
-# ==============================================================================
-
-# Function: process_pricing_logic
-# Purpose: Reads the uploaded Excel file and processes pricing rules based on fixed row order.
-# Input: file_path (location of the uploaded .xlsx file)
-process_pricing_logic <- function(file_path) {
-  
-  # --- Step 1: Process Configuration (Sheet 3) ---
-  # Reads the multiplier configurations.
-  # Logic relies on ROW ORDER, not label names.
-  raw_config <- read_excel(file_path, sheet = 3, col_names = TRUE)
-  
-  # Select only relevant columns: Type (Col 1) and Amount (Col 3)
-  df_config <- raw_config %>%
-    select(1, 3) %>% 
-    setNames(c("Type", "Amount")) %>%
-    mutate(Amount = as.numeric(Amount))
-  
-  # --- LOGIC A: PRICE_LIST (Consumables/Items) ---
-  # Strategy: Filter for "PRICE_LIST" and use row indices.
-  # Row 1 -> Internal Multiplier
-  # Row 2 -> External Multiplier
-  pl_rows <- df_config %>% filter(Type == "PRICE_LIST")
-  
-  val_item_int <- if(nrow(pl_rows) >= 1) pl_rows$Amount[1] else 1.1 # Default 1.1 if missing
-  val_item_ext <- if(nrow(pl_rows) >= 2) pl_rows$Amount[2] else 1.3 # Default 1.3 if missing
-  
-  item_logic <- list(
-    "Internal" = val_item_int,
-    "External" = val_item_ext
-  )
-  
-  # --- LOGIC B: PROCESSING (Services) ---
-  # Strategy: Filter for "PROCESSING" and use cumulative product (cumprod).
-  # Row 1 -> Internal
-  # Row 2 -> Ext. Collaborative
-  # Row 3 -> Ext. RSA
-  # Row 4 -> Commercial
-  proc_rows <- df_config %>% 
-    filter(Type == "PROCESSING") %>%
-    mutate(Cumulative = cumprod(Amount)) # Multipliers stack on top of each other
-  
-  # Helper function to safely retrieve cumulative value by row index
-  get_proc_val <- function(idx) {
-    if(nrow(proc_rows) >= idx) return(proc_rows$Cumulative[idx]) else return(1)
-  }
-  
-  processing_logic <- list(
-    "Internal"          = get_proc_val(1), # Corresponds to Row 1
-    "Ext.Collaborative" = get_proc_val(2), # Corresponds to Row 2
-    "Ext.RSA"            = get_proc_val(3), # Corresponds to Row 3
-    "Commercial"        = get_proc_val(4)  # Corresponds to Row 4
-  )
-  
-  # --- Step 2: Process Items Catalog (Sheet 1) ---
-  # Reads the list of consumable items.
-  raw_items <- read_excel(file_path, sheet = 1, col_names = TRUE)
-  
-  df_items <- raw_items %>%
-    select(1:8) %>% 
-    setNames(c("Product_Code", "Protocol", "Item", "Category", "Description", "Base_Cost", "Add_Cost", "Is_Constant")) %>%
-    mutate(
-      Base_Cost = as.numeric(Base_Cost),
-      Add_Cost = as.numeric(replace_na(Add_Cost, 0)),
-      Is_Constant = as.character(Is_Constant),
-      # Normalize boolean text to logical TRUE/FALSE
-      Is_Constant = case_when(
-        toupper(Is_Constant) %in% c("TRUE", "T", "YES", "Y", "1") ~ TRUE,
-        TRUE ~ FALSE
-      )
-    ) %>%
-    filter(!is.na(Base_Cost)) %>%
-    mutate(across(where(is.character), as.character)) 
-  
-  # Get Platform and Item pairs
-  item_platform_needed_cols <- c("Protocol", "Item", "Platform")
-  df_platform_item <- raw_items[, item_platform_needed_cols]
-  df_platform_item$Platform[is.na(df_platform_item$Platform)] <- "ALL_PLATFORMS"
-  df_platform_item <- df_platform_item %>% 
-    setNames(c("Protocol", "Item", "Platform_String")) %>%
-    mutate(Protocol = as.character(Protocol),
-           Item = as.character(Item),
-           Platform_String = as.character(Platform_String),
-           Platform = strsplit(Platform_String, split = ";", fixed = TRUE)) %>%
-    select(-Platform_String)
-  
-  
-  # --- Step 3: Process Services Catalog (Sheet 2) ---
-  # Reads the list of processing services.
-  raw_services <- read_excel(file_path, sheet = 2, col_names = TRUE)
-  
-  df_services <- raw_services %>%
-    select(1, 3, 4, 5) %>% 
-    setNames(c("Group", "Service", "Description", "Base_Price")) %>%
-    mutate(Base_Price = as.numeric(Base_Price)) %>%
-    filter(!is.na(Base_Price)) %>%
-    mutate(across(where(is.character), as.character))
-  
-  # Get Platform and Service pairs
-  process_platform_needed_col <- c("Service", "Platform")
-  df_platform_process <- raw_services[, process_platform_needed_col]
-  df_platform_process <- df_platform_process %>% 
-    setNames(c("Service", "Platform_String")) %>%
-    mutate(Service = as.character(Service),
-           Platform_String = as.character(Platform_String),
-           Platform = strsplit(Platform_String, ";", fixed = TRUE)) %>%
-    select(-Platform_String)
-  
-  # --- Step 4: Processing Discounts (Sheet 4) ---
-  # Reads the list of discounts
-  raw_discounts <- read_excel(file_path, sheet = 4, col_names = TRUE)
-  df_discounts <- raw_discounts %>%
-    setNames(c("Supplier", "Label", "Amount", "End_Date")) %>%
-    mutate(
-      Supplier = as.character(Supplier),
-      Label = as.character(Label),
-      Amount = as.numeric(Amount),
-      End_Date = as.Date(End_Date)
-    ) %>%
-    filter(!is.na(Amount)) %>%
-    mutate(End_Date = replace_na(End_Date, Sys.Date())) %>%
-    filter(End_Date >= Sys.Date()) %>%
-    mutate(Display_Text = paste(Supplier, Label, Amount, sep = " | ")) %>%
-    select(-End_Date)
-  
-  # Return structured list containing all processed data and logic maps
-  return(list(items = df_items, services = df_services, logic_proc = processing_logic, logic_item = item_logic, 
-              platform_item = df_platform_item, platform_proc = df_platform_process, supplier_discount = df_discounts))
-}
-
-# ==============================================================================
 # SECTION 3: UI DESIGN (User Interface)
 # ==============================================================================
 
@@ -450,6 +318,7 @@ server <- function(input, output, session) {
       showNotification("Data loaded successfully!", type = "message")
     }, error = function(e) {
       showNotification(paste("Error loading file:", e$message), type = "error")
+      print(e)
     })
   })
   
