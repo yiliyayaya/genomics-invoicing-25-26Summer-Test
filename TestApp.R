@@ -46,24 +46,7 @@ server <- function(input, output, session) {
   })
   
   # --- Background Warm-up for PDF Engine ---
-  observe({
-    try({
-      temp_warmup <- file.path(tempdir(), "warmup.Rmd")
-      writeLines("---\noutput: pdf_document\n---\nInit", temp_warmup)
-      rmarkdown::render(temp_warmup, output_file = file.path(tempdir(), "warmup.pdf"), quiet = TRUE)
-    }, silent = TRUE)
-  })
-  
-  # --- Helper Function: Latex Escape ---
-  escape_latex <- function(x) {
-    if (is.null(x) || is.na(x)) return("NA")
-    x <- as.character(x)
-    x <- gsub("\\\\", "\\\\textbackslash{}", x) 
-    x <- gsub("([#$%&_{}])", "\\\\\\1", x)
-    x <- gsub("\\^", "\\\\textasciicircum{}", x)
-    x <- gsub("~", "\\\\textasciitilde{}", x)
-    return(x)
-  }
+  observe({ setup_pdf_engine(tempdir()) })
   
   # --- Reactive Values ---
   values <- reactiveValues(
@@ -91,23 +74,15 @@ server <- function(input, output, session) {
   # --- Event: File Upload ---
   observeEvent(input$master_sheet, {
     req(input$master_sheet)
+    
     tryCatch({
       values$data <- process_pricing_logic(input$master_sheet$datapath)
       
-      protocols_sorted <- sort(unique(values$data$items$Protocol))
-      cats_sorted <- sort(unique(values$data$items$Category))
-      groups_sorted <- sort(unique(values$data$services$Group))
-      supplier_discount_labels <- sort(unique(values$data$supplier_discount$Display_Text))
-      
-      updateSelectInput(session, "filter_protocol", choices = c("All", protocols_sorted))
-      updateSelectInput(session, "filter_category", choices = c("All", cats_sorted))
-      updateSelectInput(session, "filter_group", choices = c("All", groups_sorted))
-      updateSelectInput(session, "supplier_discount_select", choices = c("", supplier_discount_labels))
+      populate_select_lists(session, values$data)
       
       showNotification("Data loaded successfully!", type = "message")
     }, error = function(e) {
       showNotification(paste("Error loading file:", e$message), type = "error")
-      print(e)
     })
   })
   
@@ -121,28 +96,7 @@ server <- function(input, output, session) {
     platforms <- platforms[!(platforms %in% c("ALL_PLATFORMS"))]
     choices <- c("All", platforms)
     
-    # Use professional Blue palette for the gradient
-    n_colors <- length(choices)
-    pal <- colorRampPalette(brewer.pal(9, "Blues"))(n_colors + 1)
-    
-    div(class = "platform-btn-container",
-        lapply(seq_along(choices), function(i) {
-          btn_id <- paste0("btn_platform_", gsub("[^a-zA-Z0-9]", "_", choices[i]))
-          onclick_code <- sprintf("Shiny.setInputValue('btn_platform_click', '%s', {priority: 'event'});", choices[i])
-          
-          # Gradient progresses through shades of blue
-          bg_color <- pal[i]
-          text_color <- ifelse(i > n_colors/2 + 1, "white", "black")
-          
-          tags$button(
-            choices[i],
-            id = btn_id,
-            class = "platform-action-btn",
-            style = sprintf("background-color: %s; color: %s;", bg_color, text_color),
-            onclick = onclick_code
-          )
-        })
-    )
+    create_platform_select(choices)
   })
   
   # --- Observer: Handle Platform Button Clicks ---
@@ -153,56 +107,11 @@ server <- function(input, output, session) {
   })
   
   # --- Output: Multiplier Table ---
-  output$multiplier_table <- renderTable({
-    req(values$data, input$project_type)
-    if(input$project_type == "") return(NULL)
-    
-    cat <- input$project_type
-    proc_mult <- round(values$data$logic_proc[[cat]], 3)
-    rate_type <- if(cat == "Internal") "Internal" else "External"
-    item_mult <- values$data$logic_item[[rate_type]]
-    
-    data.frame(
-      Category = c("Items (Consumables)", "Processing Services"),
-      Multiplier = c(paste0("x", item_mult), paste0("x", proc_mult))
-    )
-  }, striped = TRUE, hover = TRUE, bordered = TRUE, width = "100%")
+  output$multiplier_table <- renderTable({ create_mult_ref_table(values$data, input$project_type) }, 
+                                         striped = TRUE, hover = TRUE, bordered = TRUE, width = "100%")
   
   # --- Logic: Calculate Item Prices (Tab 1 Display) ---
-  output$table_items_catalog <- renderDT({
-    req(values$data)
-    df <- values$data$items
-    
-    if(input$filter_protocol != "All") df <- df %>% filter(Protocol == input$filter_protocol)
-    if(input$filter_category != "All") df <- df %>% filter(Category == input$filter_category)
-    
-    # Filter only if a specific platform (not 'All') is selected
-    if(values$platform_select != "All") {
-      common_items <- values$data$platform_item %>% 
-        rowwise() %>%
-        filter(any(Platform %in% values$platform_select) | any(Platform == "ALL_PLATFORMS")) %>%
-        ungroup()
-      df <- df %>% semi_join(common_items, by=c("Item", "Protocol"))
-    } 
-    
-    m_int <- values$data$logic_item[["Internal"]]
-    m_ext <- values$data$logic_item[["External"]]
-    
-    df_display <- df %>% 
-      mutate(
-        Price_Internal = ifelse(Is_Constant, Base_Cost + Add_Cost, (Base_Cost * m_int) + Add_Cost),
-        Price_External = ifelse(Is_Constant, Base_Cost + Add_Cost, (Base_Cost * m_ext) + Add_Cost)
-      ) %>%
-      select(Product_Code, Protocol, Item, Description, Price_Internal, Price_External)
-    
-    datatable(
-      df_display,
-      selection = "multiple",
-      options = list(pageLength = 10),
-      colnames = c("Code", "Protocol", "Item", "Description", "Internal Price", "External Price")
-    ) %>%
-      formatCurrency(c("Price_Internal", "Price_External"))
-  })
+  output$table_items_catalog <- renderDT({ create_items_datatable(input, values) })
   
   # --- Event: Add Items to Cart ---
   observe({
@@ -210,80 +119,12 @@ server <- function(input, output, session) {
     input$add_items_btn_top
     
     isolate({
-      if (is.null(input$table_items_catalog_rows_selected)) return()
-      
-      df_full <- values$data$items
-      if(input$filter_protocol != "All") df_full <- df_full %>% filter(Protocol == input$filter_protocol)
-      if(input$filter_category != "All") df_full <- df_full %>% filter(Category == input$filter_category)
-      
-      if(values$platform_select != "All") {
-        common_items <- values$data$platform_item %>% 
-          rowwise() %>%
-          filter(any(Platform %in% values$platform_select) | any(Platform == "ALL_PLATFORMS")) %>%
-          ungroup()
-        df_full <- df_full %>% semi_join(common_items, by=c("Item", "Protocol"))
-      } 
-      
-      selected_indices <- input$table_items_catalog_rows_selected
-      items_to_add <- df_full[selected_indices, ]
-      existing_codes <- values$cart$Product_Code
-      items_to_add_unique <- items_to_add %>% filter(!Product_Code %in% existing_codes)
-      
-      if (nrow(items_to_add_unique) == 0) return()
-      
-      new_entries <- items_to_add_unique %>%
-        mutate(
-          Cart_ID = paste0("I-", as.numeric(Sys.time()), "-", row_number()),
-          Type = "Item",
-          Quantity = 1, Disc_Pct = 0, Disc_Amt = 0,
-          Base_Ref = Base_Cost,
-          Add_Ref = Add_Cost,
-          Unit_Price = 0, Final_Total = 0
-        ) %>%
-        select(Cart_ID, Product_Code, Name = Item, Description, Type, Category, 
-               Base_Ref, Add_Ref, Is_Constant, Unit_Price, Quantity, Disc_Pct, Disc_Amt, Final_Total)
-      
-      values$cart <- bind_rows(values$cart, new_entries) %>% as.data.frame()
-      showNotification(paste(nrow(new_entries), "new items added."), type = "message")
+      update_cart_items(input, values)
     })
   })
   
   # --- Logic: Calculate Service Prices (Tab 2 Display) ---
-  output$table_proc_catalog <- renderDT({
-    req(values$data)
-    df <- values$data$services
-    if(input$filter_group != "All") df <- df %>% filter(Group == input$filter_group)
-    
-    # Filter only if a specific platform (not 'All') is selected
-    if(values$platform_select != "All") {
-      common_services <- values$data$platform_proc %>% 
-        rowwise() %>%
-        filter(any(Platform %in% values$platform_select) | any(Platform == "ALL_PLATFORMS")) %>%
-        ungroup()
-      df <- df[df$Service %in% common_services$Service, ]
-    }
-    
-    m_int <- values$data$logic_proc[["Internal"]]
-    m_col <- values$data$logic_proc[["Ext.Collaborative"]]
-    m_rsa <- values$data$logic_proc[["Ext.RSA"]]
-    m_com <- values$data$logic_proc[["Commercial"]]
-    
-    df_display <- df %>% 
-      mutate(
-        P_Int = Base_Price * m_int,
-        P_Col = Base_Price * m_col,
-        P_RSA = Base_Price * m_rsa,
-        P_Com = Base_Price * m_com
-      ) %>%
-      select(Group, Service, Description, P_Int, P_Col, P_RSA, P_Com)
-    
-    datatable(
-      df_display,
-      selection = "multiple", options = list(pageLength = 10, scrollX = TRUE),
-      colnames = c("Group", "Service", "Description", "Internal", "Ext. Collab", "Ext. RSA", "Commercial")
-    ) %>%
-      formatCurrency(c("P_Int", "P_Col", "P_RSA", "P_Com"))
-  })
+  output$table_proc_catalog <- renderDT({ create_services_datatable(input, values) })
   
   # --- Event: Add Services to Cart ---
   observe({
@@ -291,195 +132,26 @@ server <- function(input, output, session) {
     input$add_proc_btn_top
     
     isolate({
-      if (is.null(input$table_proc_catalog_rows_selected)) return()
-      
-      df_full <- values$data$services
-      if(input$filter_group != "All") df_full <- df_full %>% filter(Group == input$filter_group)
-      
-      if(values$platform_select != "All") {
-        common_services <- values$data$platform_proc %>% 
-          rowwise() %>%
-          filter(any(Platform %in% values$platform_select) | any(Platform == "ALL_PLATFORMS")) %>%
-          ungroup()
-        df_full <- df_full[df_full$Service %in% common_services$Service, ]
-      }
-      
-      selected_indices <- input$table_proc_catalog_rows_selected
-      items_to_add <- df_full[selected_indices, ]
-      existing_names <- values$cart$Name
-      items_to_add_unique <- items_to_add %>% filter(!Service %in% existing_names)
-      
-      if (nrow(items_to_add_unique) == 0) return()
-      
-      new_entries <- items_to_add_unique %>%
-        mutate(
-          Cart_ID = paste0("P-", as.numeric(Sys.time()), "-", row_number()),
-          Type = "Processing",
-          Category = Group, 
-          Quantity = 1, Disc_Pct = 0, Disc_Amt = 0,
-          Product_Code = "SVC",
-          Base_Ref = Base_Price,
-          Add_Ref = 0,
-          Is_Constant = FALSE,
-          Unit_Price = 0, Final_Total = 0
-        ) %>%
-        select(Cart_ID, Product_Code, Name = Service, Description, Type, Category, 
-               Base_Ref, Add_Ref, Is_Constant, Unit_Price, Quantity, Disc_Pct, Disc_Amt, Final_Total)
-      
-      values$cart <- bind_rows(values$cart, new_entries) %>% as.data.frame()
-      showNotification(paste(nrow(new_entries), "new services added."), type = "message")
+      update_cart_services(input, values)
     })
   })
   
   # --- Observer: Recalculate Cart when Project Type Changes ---
-  observeEvent(input$project_type, {
-    req(values$data, nrow(values$cart) > 0)
-    if(input$project_type == "") return()
-    
-    ptype <- input$project_type
-    rate_type_item <- if(ptype == "Internal") "Internal" else "External"
-    mult_item <- values$data$logic_item[[rate_type_item]]
-    mult_proc <- values$data$logic_proc[[ptype]]
-    
-    if(is.null(mult_proc)) mult_proc <- 1 
-    
-    values$cart <- values$cart %>%
-      mutate(
-        Unit_Price = case_when(
-          Type == "Item" & Is_Constant ~ Base_Ref + Add_Ref,
-          Type == "Item" & !Is_Constant ~ (Base_Ref * mult_item) + Add_Ref,
-          Type == "Processing" ~ Base_Ref * mult_proc,
-          TRUE ~ 0
-        ),
-        Gross = Unit_Price * Quantity,
-        Disc_Amt = Gross * (Disc_Pct / 100),
-        Final_Total = Gross - Disc_Amt
-      ) %>%
-      select(-Gross) 
-  })
+  observeEvent(input$project_type, { recalculate_cart(input, values) })
   
   # --- Output: Final Quote Table ---
-  output$table_final_quote <- renderDT({
-    req(input$project_type) 
-    
-    display_df <- values$cart %>% 
-      select(Product_Code, Name, Description, Type, Unit_Price, Quantity, Disc_Pct, Disc_Amt, Final_Total) %>%
-      as.data.frame() 
-    
-    datatable(display_df,
-              selection = "multiple",
-              editable = list(target = "cell", disable = list(columns = c(0, 1, 2, 3, 4, 8))),
-              options = list(
-                pageLength = 25, 
-                dom = 't',
-                scrollX = TRUE 
-              ),
-              rownames = FALSE,
-              colnames = c("Code", "Name", "Description", "Type", "Unit Price", "Quantity", "Discount %", "Discount $", "Total")) %>%
-      formatCurrency(c("Unit_Price", "Disc_Amt", "Final_Total")) %>%
-      formatRound("Disc_Pct", 2)
-  }, server = FALSE) 
+  output$table_final_quote <- renderDT({ create_quote_datatable(input, values$cart) }, server = FALSE) 
   
   # --- Event: Edit Quote Table Cells ---
-  observeEvent(input$table_final_quote_cell_edit, {
-    info <- input$table_final_quote_cell_edit
-    row_idx <- info$row
-    col_idx <- info$col 
-    new_val <- as.numeric(info$value)
-    
-    current_row <- values$cart[row_idx, ]
-    price <- current_row$Unit_Price
-    qty   <- current_row$Quantity
-    
-    if (col_idx == 5) {
-      qty <- new_val
-      values$cart$Quantity[row_idx] <- qty
-      pct <- values$cart$Disc_Pct[row_idx]
-      gross <- price * qty
-      disc_amt <- gross * (pct / 100)
-      values$cart$Disc_Amt[row_idx] <- disc_amt
-      values$cart$Final_Total[row_idx] <- gross - disc_amt
-    } else if (col_idx == 6) { 
-      pct <- new_val
-      values$cart$Disc_Pct[row_idx] <- pct
-      gross <- price * qty
-      disc_amt <- gross * (pct / 100)
-      values$cart$Disc_Amt[row_idx] <- disc_amt
-      values$cart$Final_Total[row_idx] <- gross - disc_amt
-    } else if (col_idx == 7) { 
-      amt <- new_val
-      values$cart$Disc_Amt[row_idx] <- amt
-      gross <- price * qty
-      pct <- if(gross > 0) (amt / gross) * 100 else 0
-      values$cart$Disc_Pct[row_idx] <- pct
-      values$cart$Final_Total[row_idx] <- gross - amt
-    }
-  })
+  observeEvent(input$table_final_quote_cell_edit, { update_quote_table(input$table_final_quote_cell_edit, values) })
   
   # --- Observer: Apply Supplier Discount ---
-  observeEvent(input$apply_supp_disc_btn, {
-    req(input$supplier_discount_select, input$table_final_quote_rows_selected)
-    if(input$supplier_discount_select == "") {
-      return()
-    }
-    discount_data <- values$data$supplier_discount %>% filter(Display_Text == input$supplier_discount_select)
-    discount_pct <- discount_data$Amount[1] * 100
-    
-    for (row_idx in input$table_final_quote_rows_selected) {
-      current_row <- values$cart[row_idx, ]
-      values$cart$Disc_Pct[row_idx] <- discount_pct
-      pre_discount_total <- current_row$Unit_Price * current_row$Quantity
-      discount_amt <- pre_discount_total * (discount_pct / 100)
-      values$cart$Disc_Amt[row_idx] <- discount_amt
-      values$cart$Final_Total[row_idx] <- pre_discount_total - discount_amt
-    }
-  })
+  observeEvent(input$apply_supp_disc_btn, { apply_supplier_discount(input, values) })
   
   # --- Observer: Apply Custom Discounts ---
-  observeEvent(input$apply_percent_discount, {
-    req(input$table_final_quote_rows_selected, input$percent_discount_input)
-    if(input$percent_discount_input < 0 | input$percent_discount_input > 100) {
-      showNotification("Input Error: % Discount must be numeric between 0 and 100.", type = "warning")
-      return()
-    }
-    
-    discount_pct <- input$percent_discount_input
-    
-    for (row_idx in input$table_final_quote_rows_selected) {
-      current_row <- values$cart[row_idx, ]
-      values$cart$Disc_Pct[row_idx] <- discount_pct
-      pre_discount_total <- current_row$Unit_Price * current_row$Quantity
-      discount_amt <- pre_discount_total * (discount_pct / 100)
-      values$cart$Disc_Amt[row_idx] <- discount_amt
-      values$cart$Final_Total[row_idx] <- pre_discount_total - discount_amt
-    }
-  })
+  observeEvent(input$apply_percent_discount, { apply_percentage_discount(input, values) })
   
-  observeEvent(input$apply_amount_discount, {
-    req(input$table_final_quote_rows_selected, input$amount_discount_input)
-    if(input$amount_discount_input < 0) {
-      showNotification("Input Error: $ Discount must non-negative.", type = "warning")
-      return()
-    }
-    
-    discount_amt <- input$amount_discount_input
-    
-    for (row_idx in input$table_final_quote_rows_selected) {
-      current_row <- values$cart[row_idx, ]
-      values$cart$Disc_Amt[row_idx] <- discount_amt
-      pre_discount_total <- current_row$Unit_Price * current_row$Quantity
-      if(pre_discount_total < discount_amt) {
-        discount_pct <-  100
-        values$cart$Disc_Amt[row_idx] <- pre_discount_total
-        values$cart$Disc_Pct[row_idx] <- discount_pct
-        values$cart$Final_Total[row_idx] <- 0
-      } else {
-        discount_pct <- (discount_amt / pre_discount_total) * 100
-        values$cart$Disc_Pct[row_idx] <- discount_pct
-        values$cart$Final_Total[row_idx] <- pre_discount_total - discount_amt  
-      }
-    }
-  })
+  observeEvent(input$apply_amount_discount, { apply_amount_discount(input, values) })
   
   # --- Event: Remove Row ---
   observeEvent(input$remove_row_btn, {
