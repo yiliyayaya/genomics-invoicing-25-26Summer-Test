@@ -40,7 +40,8 @@ create_mult_ref_table <- function(multiplier_data, project_type) {
   if(project_type == "" || is.na(project_type)) { return(NULL) }
   
   proc_mult <- round(multiplier_data$logic_proc[[project_type]], 3)
-  item_mult <- multiplier_data$logic_item[[project_type]]
+  rate_type <- if(project_type == "Internal") "Internal" else "External"
+  item_mult <- multiplier_data$logic_item[[rate_type]]
   
   return(data.frame(
     Category = c("Items (Consumables)", "Processing Services"),
