@@ -1,4 +1,3 @@
-# --- Helper Function: Latex Escape ---
 escape_latex <- function(x) {
   # Function to format strings and check for special characters for LaTeX.
   #
