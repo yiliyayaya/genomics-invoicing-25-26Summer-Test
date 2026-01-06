@@ -5,21 +5,20 @@ source("requirements/requirements.R")
 # SECTION 1: PACKAGE MANAGEMENT & SETUP
 # ==============================================================================
 
-# This is kept here for demonstration purposes, this should be removed after
-# it is hosted on WEHI servers and replaced with the check_requirements function
+# Check and install required packages
 run_setup()
 
-# Load libraries
-library(shiny)      # Core framework for the web app
-library(bslib)      # For modern Bootstrap themes and styling
-library(DT)         # For interactive data tables
-library(dplyr)      # For data manipulation (filter, select, mutate)
-library(readxl)     # For reading Excel files
-library(openxlsx)   # For creating and formatting Excel exports
-library(tidyr)      # For data tidying (e.g., replace_na)
-library(rmarkdown)  # For generating PDF reports
-library(shinyjs)    # For JavaScript operations (hiding/disabling inputs, onclick events)
-library(tinytex)    # Helper for compiling LaTeX to PDF
+# Load packages
+library(shiny)        # Core framework for the web app
+library(bslib)        # For modern Bootstrap themes and styling
+library(DT)           # For interactive data tables
+library(dplyr)        # For data manipulation (filter, select, mutate)
+library(readxl)       # For reading Excel files
+library(openxlsx)     # For creating and formatting Excel exports
+library(tidyr)        # For data tidying (e.g., replace_na)
+library(rmarkdown)    # For generating PDF reports
+library(shinyjs)      # For JavaScript operations (hiding/disabling inputs, onclick events)
+library(tinytex)      # Helper for compiling LaTeX to PDF
 library(RColorBrewer) # For professional color palettes
 
 ui <- main_ui_features()
