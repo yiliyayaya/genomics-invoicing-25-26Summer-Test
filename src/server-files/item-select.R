@@ -6,20 +6,20 @@ create_items_datatable <- function(input, values) {
   # input(list) - List of input values from Shiny server function
   # values(list) - List of Reactive Values used in server
   
-  req(values$data$items, values$platform_select)
+  req(values$data$items, values$application_select)
   
   items_df <- values$data$items
   
-  # Filter only if a specific platform (not 'All') is selected
-  if(values$platform_select != "All") {
-    common_items <- values$data$platform_item %>% 
+  # Filter only if a specific application (not 'All') is selected
+  if(values$application_select != "All") {
+    common_items <- values$data$application_item %>% 
       rowwise() %>%
-      filter(any(Platform %in% values$platform_select) | any(Platform == "ALL_PLATFORMS")) %>%
+      filter(any(Application %in% values$application_select) | any(Application == "ALL_PLATFORMS")) %>%
       ungroup()
     items_df <- items_df %>% semi_join(common_items, by=c("Item", "Brand"))
   }
 
-  #Filter by protocol and category
+  #Filter by brand and category
   if(input$filter_item_brand != "All") items_df <- items_df %>% filter(Brand == input$filter_item_brand)
   if(input$filter_category != "All") items_df <- items_df %>% filter(Category == input$filter_category)
 
@@ -58,10 +58,10 @@ update_cart_items <- function(input, values) {
   if(input$filter_item_brand != "All") df_full <- df_full %>% filter(Brand == input$filter_item_brand)
   if(input$filter_category != "All") df_full <- df_full %>% filter(Category == input$filter_category)
   
-  if(values$platform_select != "All") {
-    common_items <- values$data$platform_item %>% 
+  if(values$application_select != "All") {
+    common_items <- values$data$application_item %>% 
       rowwise() %>%
-      filter(any(Platform %in% values$platform_select) | any(Platform == "ALL_PLATFORMS")) %>%
+      filter(any(Application %in% values$application_select) | any(Application == "ALL_PLATFORMS")) %>%
       ungroup()
     df_full <- df_full %>% semi_join(common_items, by=c("Item", "Brand"))
   } 

@@ -1,7 +1,7 @@
 source("src/ui-files/charges-ui.R", local=FALSE)
 source("src/ui-files/final-quote-ui.R", local=TRUE)
 source("src/ui-files/item-ui.R", local=TRUE)
-source("src/ui-files/platform-ui.R", local=TRUE)
+source("src/ui-files/application-ui.R", local=TRUE)
 
 main_ui_features <- function() {
   # Main function to initialize app UI structure
@@ -88,8 +88,8 @@ main_ui_features <- function() {
     navset_card_underline(
       id = "nav_tabs",
       
-      # Tab 1: Select Platfor
-      structure_platform_page(),
+      # Tab 1: Select application
+      structure_application_protocol_page(),
       # Tab 2: Catalog for Consumables
       structure_items_page(),
       # Tab 3: Catalog for Services

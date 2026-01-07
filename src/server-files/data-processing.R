@@ -15,13 +15,13 @@ process_pricing_logic <- function(file_path) {
   raw_items <- read_excel(file_path, sheet = 1, col_names = TRUE)
   
   df_items <- process_items_data(raw_items)
-  df_platform_item <- get_item_platform_data(raw_items)
+  df_application_item <- get_item_application_data(raw_items)
   
   # Service charges processing logic
   raw_services <- read_excel(file_path, sheet = 2, col_names = TRUE)
   
   df_services <- process_services_data(raw_services)
-  df_platform_process <- get_services_platform_data(raw_services)
+  df_application_process <- get_services_application_data(raw_services)
   
   # Discounts processing logic
   raw_discounts <- read_excel(file_path, sheet = 4, col_names = TRUE)
@@ -30,7 +30,7 @@ process_pricing_logic <- function(file_path) {
   
   # Return structured list containing all processed data and logic maps
   return(list(items = df_items, services = df_services, logic_proc = processing_logic, logic_item = item_logic, 
-              platform_item = df_platform_item, platform_proc = df_platform_process, supplier_discount = df_discounts))
+              application_item = df_application_item, application_proc = df_application_process, supplier_discount = df_discounts))
 }
 
 
@@ -116,25 +116,25 @@ process_items_data <- function(raw_items_data) {
   return(processed_items)
 }
 
-get_item_platform_data <- function(raw_items_data) {
-  # Reads the raw price list data and returns a dataframe of item-platform relations
+get_item_application_data <- function(raw_items_data) {
+  # Reads the raw price list data and returns a dataframe of item-application relations
   #
   # Arguments:
   # raw_items_data(dataframe) - The raw price item list data to be processed
   
-  item_platform_needed_cols <- c("Brand", "Item", "Platform")
+  item_application_needed_cols <- c("Brand", "Item", "Application")
   
-  platform_item_data <- raw_items_data[, item_platform_needed_cols]
-  platform_item_data$Platform[is.na(platform_item_data$Platform)] <- "ALL_PLATFORMS"
-  platform_item_data <- platform_item_data %>% 
-    setNames(c("Brand", "Item", "Platform_String")) %>%
+  application_item_data <- raw_items_data[, item_application_needed_cols]
+  application_item_data$Application[is.na(application_item_data$Application)] <- "ALL_APPLICATIONS"
+  application_item_data <- application_item_data %>% 
+    setNames(c("Brand", "Item", "Application_String")) %>%
     mutate(Brand = as.character(Brand),
            Item = as.character(Item),
-           Platform_String = as.character(Platform_String),
-           Platform = strsplit(Platform_String, split = ";", fixed = TRUE)) %>%
-    select(-Platform_String)
+           Application_String = as.character(Application_String),
+           Application = strsplit(Application_String, split = ";", fixed = TRUE)) %>%
+    select(-Application_String)
   
-  return(platform_item_data)
+  return(application_item_data)
 }
 
 process_services_data <- function(raw_services_data) {
@@ -153,23 +153,23 @@ process_services_data <- function(raw_services_data) {
   return(processed_services)
 }
 
-get_services_platform_data <- function(raw_services_data) {
-  # Reads the raw processing charges data and returns a dataframe of services-platform relations
+get_services_application_data <- function(raw_services_data) {
+  # Reads the raw processing charges data and returns a dataframe of services-application relations
   #
   # Arguments:
   # raw_services_data(dataframe) - The raw processing charges list data to be processed
   
-  service_platform_needed_col <- c("Service", "Platform")
+  service_application_needed_col <- c("Service", "Application")
   
-  platform_service_data <- raw_services_data[, service_platform_needed_col]
-  platform_service_data <- platform_service_data %>% 
-    setNames(c("Service", "Platform_String")) %>%
+  application_service_data <- raw_services_data[, service_application_needed_col]
+  application_service_data <- application_service_data %>% 
+    setNames(c("Service", "Application_String")) %>%
     mutate(Service = as.character(Service),
-           Platform_String = as.character(Platform_String),
-           Platform = strsplit(Platform_String, ";", fixed = TRUE)) %>%
-    select(-Platform_String)
+           Application_String = as.character(Application_String),
+           Application = strsplit(Application_String, ";", fixed = TRUE)) %>%
+    select(-Application_String)
   
-  return(platform_service_data)
+  return(application_service_data)
 }
 
 process_discounts_data <- function(raw_discounts_data) {

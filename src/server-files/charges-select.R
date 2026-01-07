@@ -10,11 +10,11 @@ create_services_datatable <- function(input, values) {
   df <- values$data$services
   if(input$filter_group != "All") df <- df %>% filter(Group == input$filter_group)
   
-  # Filter only if a specific platform (not 'All') is selected
-  if(values$platform_select != "All") {
-    common_services <- values$data$platform_proc %>% 
+  # Filter only if a specific application (not 'All') is selected
+  if(values$application_select != "All") {
+    common_services <- values$data$application_proc %>% 
       rowwise() %>%
-      filter(any(Platform %in% values$platform_select) | any(Platform == "ALL_PLATFORMS")) %>%
+      filter(any(Application %in% values$application_select) | any(Application == "ALL_APPLICATIONS")) %>%
       ungroup()
     df <- df[df$Service %in% common_services$Service, ]
   }
@@ -56,10 +56,10 @@ update_cart_services <- function(input, values) {
   df_full <- values$data$services
   if(input$filter_group != "All") df_full <- df_full %>% filter(Group == input$filter_group)
   
-  if(values$platform_select != "All") {
-    common_services <- values$data$platform_proc %>% 
+  if(values$application_select != "All") {
+    common_services <- values$data$application_proc %>% 
       rowwise() %>%
-      filter(any(Platform %in% values$platform_select) | any(Platform == "ALL_PLATFORMS")) %>%
+      filter(any(Application %in% values$application_select) | any(Application == "ALL_APPLICATIONS")) %>%
       ungroup()
     df_full <- df_full[df_full$Service %in% common_services$Service, ]
   }

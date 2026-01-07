@@ -3,7 +3,7 @@ source("src/server-files/data-processing.R", local=TRUE)
 source("src/server-files/final-quote.R", local=TRUE)
 source("src/server-files/item-select.R", local=TRUE)
 source("src/server-files/output.R", local=TRUE)
-source("src/server-files/platform-select.R", local=TRUE)
+source("src/server-files/application-select.R", local=TRUE)
 
 main_server_logic <- function(input, output, session, values) {
   # --- Startup Notification ---
@@ -37,23 +37,24 @@ main_server_logic <- function(input, output, session, values) {
     })
   })
   
-  # --- UI Output: Platform Button Stack ---
+  # --- UI Output: Application/Platform Button Stack ---
   # Generates a vertical list of rectangular buttons with light-to-dark blue gradient
-  output$platform_button_ui <- renderUI({
+  output$application_button_ui <- renderUI({
     req(values$data)
     
-    platforms <- sort(unique(c(unlist(values$data$platform_item$Platform, use.names = FALSE), 
-                               unlist(values$data$platform_proc$Platform, use.names = FALSE))))
-    platforms <- platforms[!(platforms %in% c("ALL_PLATFORMS"))]
-    choices <- c("All", platforms)
+    applications <- sort(unique(c(unlist(values$data$application_item$Application, use.names = FALSE), 
+                               unlist(values$data$application_proc$Application, use.names = FALSE))))
+    applications <- applications[!(applications %in% c("ALL_APPLICATIONS"))]
+    choices <- c("All", applications)
     
-    create_platform_select(choices)
+    create_application_select(choices)
   })
+  
   
   # --- Observer: Handle Platform Button Clicks ---
   # If 'All' is selected, filter is bypassed and user moves to next step
-  observeEvent(input$btn_platform_click, {
-    values$platform_select <- input$btn_platform_click
+  observeEvent(input$btn_application_click, {
+    values$application_select <- input$btn_application_click
     nav_select(id = "nav_tabs", selected = "tab_items")
   })
   
