@@ -1,9 +1,9 @@
-source("src/server-files/charges-select.R")
-source("src/server-files/data-processing.R")
-source("src/server-files/final-quote.R")
-source("src/server-files/item-select.R")
-source("src/server-files/output.R")
-source("src/server-files/platform-select.R")
+source("src/server-files/charges-select.R", local=TRUE)
+source("src/server-files/data-processing.R", local=TRUE)
+source("src/server-files/final-quote.R", local=TRUE)
+source("src/server-files/item-select.R", local=TRUE)
+source("src/server-files/output.R", local=TRUE)
+source("src/server-files/platform-select.R", local=TRUE)
 
 main_server_logic <- function(input, output, session, values) {
   # --- Startup Notification ---
@@ -32,6 +32,8 @@ main_server_logic <- function(input, output, session, values) {
       showNotification("Data loaded successfully!", type = "message")
     }, error = function(e) {
       showNotification(paste("Error loading file:", e$message), type = "error")
+      print(e$message)
+      print(e)
     })
   })
   
@@ -122,12 +124,12 @@ main_server_logic <- function(input, output, session, values) {
 populate_select_lists <- function(session, data_list) {
   req(session, data)
   
-  protocols_sorted <- sort(unique(data_list$items$Protocol))
+  item_brand_sorted <- sort(unique(data_list$items$Brand))
   cats_sorted <- sort(unique(data_list$items$Category))
   groups_sorted <- sort(unique(data_list$services$Group))
   supplier_discount_labels <- sort(unique(data_list$supplier_discount$Display_Text))
   
-  updateSelectInput(session, "filter_protocol", choices = c("All", protocols_sorted))
+  updateSelectInput(session, "filter_item_brand", choices = c("All", item_brand_sorted))
   updateSelectInput(session, "filter_category", choices = c("All", cats_sorted))
   updateSelectInput(session, "filter_group", choices = c("All", groups_sorted))
   updateSelectInput(session, "supplier_discount_select", choices = c("", supplier_discount_labels))

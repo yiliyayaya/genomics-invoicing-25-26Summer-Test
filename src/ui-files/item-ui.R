@@ -24,7 +24,7 @@ item_sidebar_filters <- function() {
   item_sidebar_panel <- conditionalPanel(
     condition = "input.nav_tabs == 'tab_items'",
     h5("Filter Items"),
-    selectInput("filter_protocol", "Filter Protocol", choices = "All", selectize = TRUE), 
+    selectInput("filter_item_brand", "Filter Brand", choices = "All", selectize = TRUE), 
     selectInput("filter_category", "Filter Category", choices = "All"),
     div(class = "text-muted small mb-2", "Tip: Select items in the table, then click 'Add'."),
     actionButton("add_items_btn", "Add Selected to Quote", class = "btn-success w-100")

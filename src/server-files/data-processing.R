@@ -99,7 +99,7 @@ process_items_data <- function(raw_items_data) {
   
   processed_items <- raw_items_data %>%
     select(1:8) %>% 
-    setNames(c("Product_Code", "Protocol", "Item", "Category", "Description", "Base_Cost", "Add_Cost", "Is_Constant")) %>%
+    setNames(c("Product_Code", "Brand", "Item", "Category", "Description", "Base_Cost", "Add_Cost", "Is_Constant")) %>%
     mutate(
       Base_Cost = as.numeric(Base_Cost),
       Add_Cost = as.numeric(replace_na(Add_Cost, 0)),
@@ -122,13 +122,13 @@ get_item_platform_data <- function(raw_items_data) {
   # Arguments:
   # raw_items_data(dataframe) - The raw price item list data to be processed
   
-  item_platform_needed_cols <- c("Protocol", "Item", "Platform")
+  item_platform_needed_cols <- c("Brand", "Item", "Platform")
   
   platform_item_data <- raw_items_data[, item_platform_needed_cols]
   platform_item_data$Platform[is.na(platform_item_data$Platform)] <- "ALL_PLATFORMS"
   platform_item_data <- platform_item_data %>% 
-    setNames(c("Protocol", "Item", "Platform_String")) %>%
-    mutate(Protocol = as.character(Protocol),
+    setNames(c("Brand", "Item", "Platform_String")) %>%
+    mutate(Brand = as.character(Brand),
            Item = as.character(Item),
            Platform_String = as.character(Platform_String),
            Platform = strsplit(Platform_String, split = ";", fixed = TRUE)) %>%

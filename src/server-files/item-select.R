@@ -16,11 +16,11 @@ create_items_datatable <- function(input, values) {
       rowwise() %>%
       filter(any(Platform %in% values$platform_select) | any(Platform == "ALL_PLATFORMS")) %>%
       ungroup()
-    items_df <- items_df %>% semi_join(common_items, by=c("Item", "Protocol"))
+    items_df <- items_df %>% semi_join(common_items, by=c("Item", "Brand"))
   }
 
   #Filter by protocol and category
-  if(input$filter_protocol != "All") items_df <- items_df %>% filter(Protocol == input$filter_protocol)
+  if(input$filter_item_brand != "All") items_df <- items_df %>% filter(Brand == input$filter_item_brand)
   if(input$filter_category != "All") items_df <- items_df %>% filter(Category == input$filter_category)
 
   # Calculate Internal/External Surcharge prices
@@ -31,14 +31,14 @@ create_items_datatable <- function(input, values) {
       Price_Internal = ifelse(Is_Constant, Base_Cost + Add_Cost, (Base_Cost * internal_mult) + Add_Cost),
       Price_External = ifelse(Is_Constant, Base_Cost + Add_Cost, (Base_Cost * external_mult) + Add_Cost)
     ) %>%
-    select(Product_Code, Protocol, Item, Description, Price_Internal, Price_External)
+    select(Product_Code, Brand, Item, Description, Price_Internal, Price_External)
 
   # Generate display datatable
   items_datatable <- datatable(
     df_display,
     selection = "multiple",
     options = list(pageLength = 10),
-    colnames = c("Code", "Protocol", "Item", "Description", "Internal Price", "External Price"))
+    colnames = c("Code", "Brand", "Item", "Description", "Internal Price", "External Price"))
   items_datatable <- items_datatable %>%  formatCurrency(c("Price_Internal", "Price_External"))
   
   return(items_datatable)
@@ -55,7 +55,7 @@ update_cart_items <- function(input, values) {
   if (is.null(input$table_items_catalog_rows_selected)) return()
   
   df_full <- values$data$items
-  if(input$filter_protocol != "All") df_full <- df_full %>% filter(Protocol == input$filter_protocol)
+  if(input$filter_item_brand != "All") df_full <- df_full %>% filter(Brand == input$filter_item_brand)
   if(input$filter_category != "All") df_full <- df_full %>% filter(Category == input$filter_category)
   
   if(values$platform_select != "All") {
@@ -63,7 +63,7 @@ update_cart_items <- function(input, values) {
       rowwise() %>%
       filter(any(Platform %in% values$platform_select) | any(Platform == "ALL_PLATFORMS")) %>%
       ungroup()
-    df_full <- df_full %>% semi_join(common_items, by=c("Item", "Protocol"))
+    df_full <- df_full %>% semi_join(common_items, by=c("Item", "Brand"))
   } 
   
   selected_indices <- input$table_items_catalog_rows_selected
