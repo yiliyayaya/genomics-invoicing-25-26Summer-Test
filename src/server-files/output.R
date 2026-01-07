@@ -16,7 +16,7 @@ PER_BATCH_HEADING <- 15
 MAIN_SECTION_HEADER <- 16
 
 main_output_logic <- function(input, output, cart_data) {
-  # Function that manages logic for outputs.
+  # Manages the core output logic for spreadsheet templates, Excel quotes, and PDF invoices.
   #
   # Arguments: 
   # input(list) - List of input values from Shiny server function
@@ -70,7 +70,7 @@ main_output_logic <- function(input, output, cart_data) {
 }
 
 setup_pdf_engine <- function(temp_path) {
-  # Function to setup the PDF engine for quote generation later.
+  # Pre-warms the PDF engine to reduce latency during the first real PDF generation.
   #
   # Arguments:
   # temp_path(string) - The temporary directory used to temporarily store the PDF
@@ -83,13 +83,13 @@ setup_pdf_engine <- function(temp_path) {
 }
 
 generate_excel_quote <- function(meta_data, meta_label, cart_data, file) {
-  # Function that generates Excel quote output.
+  # Constructs and formats the Excel workbook for project quotes.
   #
   # Arguments: 
   # meta_data(list) - List of metadata values derived from input 
   # meta_label(list) - List of metadata labels used for quote formatting
   # cart_data(dataframe) - Dataframe containing selected items/charges from cart
-  # file(string) - The temporary file path for the PDF
+  # file(string) - The temporary file path for the output
   
   req(cart_data)
   
@@ -100,7 +100,7 @@ generate_excel_quote <- function(meta_data, meta_label, cart_data, file) {
   style_line_bold <- createStyle(border = "bottom", borderColour = "black", borderStyle = "medium")
   style_line_thin <- createStyle(border = "bottom", borderColour = "black", borderStyle = "thin")
   style_grand_total <- createStyle(fontSize = 12, textDecoration = "bold")
-
+  
   df_table <- cart_data %>%
     mutate(Total_Amount_AUD = Unit_Price * Quantity) %>%
     select(Name, Unit_Price, Description, Quantity, Total_Amount_AUD)
@@ -170,7 +170,7 @@ generate_excel_quote <- function(meta_data, meta_label, cart_data, file) {
   footer_text <- c(
     "All prices are in AUD and exclude GST.",
     "Cost estimated and quotes are valid for 4 weeks.",
-    "Purchase orders and additional price enquires should be directed to Daniela Zalcenstein (zalcenstein.d@wehi.edu.au)."
+    "Purchase orders and additional price enquiries should be directed to Daniela Zalcenstein (zalcenstein.d@wehi.edu.au)."
   )
   for(i in 1:3) {
     write_data_to_excel(wb, "Invoice", footer_text[i], start_row = row_footer + i, start_col = FIRST_COL, text_style = createStyle(fontSize = 9))
@@ -181,7 +181,7 @@ generate_excel_quote <- function(meta_data, meta_label, cart_data, file) {
 }
 
 write_data_to_excel <- function(wb_object, target_sheet, text, start_row, start_col, end_col = NULL, text_style = NULL, text_style2 = NULL) {
-  # Function that writes and styles output for Excel file.
+  # Utility function to write data to Excel with optional styling.
   #
   # Arguments: 
   # wb_object(Workbook) - Workbook object containing a worksheet
@@ -212,7 +212,7 @@ write_data_to_excel <- function(wb_object, target_sheet, text, start_row, start_
 }
 
 generate_pdf_quote <- function(input, cart_data, file) {
-  # Function that generates PDF quote output.
+  # Generates a PDF invoice using R Markdown and LaTeX templates with custom fonts and styles.
   #
   # Arguments: 
   # input(list) - List of input values from Shiny server function 
@@ -234,7 +234,9 @@ generate_pdf_quote <- function(input, cart_data, file) {
   
   rmd_content <- paste(
     "---",
-    "output: pdf_document",
+    "output:",
+    "  pdf_document:",
+    "    latex_engine: xelatex",
     "params:",
     "  date: NA",
     "  quote_id: NA",
@@ -258,7 +260,30 @@ generate_pdf_quote <- function(input, cart_data, file) {
     "    - \\usepackage{colortbl}",
     "    - \\usepackage{xcolor}",
     "    - \\usepackage{float}",
+    "    - \\usepackage{graphicx}",
+    "    - \\usepackage{tikz}",
+    "    - \\usepackage{fontspec}",
+    "    - \\IfFontExistsTF{Helvetica Neue}{\\newfontfamily\\headerfont{Helvetica Neue}}{\\newfontfamily\\headerfont{Arial}}",
+    "    - \\definecolor{darkgrey}{RGB}{77,77,77}",
     "---",
+    "",
+    "\\begin{center}",
+    "  \\begin{tikzpicture}[remember picture]",
+    "    \\node[inner sep=0pt, outer sep=0pt] (img) at (0,0) {\\makebox[\\textwidth][c]{\\includegraphics[width=0.95\\paperwidth]{pdf_header.png}}};",
+    "    \\node[anchor=north east, align=left, fill=white, inner sep=2pt, xshift=-0.4cm, yshift=-0.45cm] at (img.north east) {",
+    "      \\begin{minipage}{7.5cm}",
+    "        \\headerfont\\fontsize{10}{10.4}\\selectfont\\color{darkgrey}",
+    "        \\textbf{The Walter and Eliza Hall Institute of Medical Research} \\\\",
+    "        ABN 12 004 251 423 \\\\[0.6em]",
+    "        1G Royal Parade Parkville Victoria 3052 Australia \\\\",
+    "        T +61 3 9345 2555 F +61 3 9347 0852 \\\\",
+    "        \\textbf{www.wehi.edu.au}",
+    "      \\end{minipage}",
+    "    };",
+    "  \\end{tikzpicture}",
+    "\\end{center}",
+    "",
+    "\\vspace{-2em}",
     "",
     chunk_header,
     "knitr::opts_chunk$set(echo = FALSE)",
@@ -270,7 +295,7 @@ generate_pdf_quote <- function(input, cart_data, file) {
     "",
     "*Project based cost estimate*",
     "",
-    "\\vspace{1em}",
+    "\\vspace{0.5em}",
     "",
     "**Date:** `r params$date`  ",
     "**Quote ID:** `r params$quote_id`",
@@ -320,14 +345,19 @@ generate_pdf_quote <- function(input, cart_data, file) {
     "",
     "\\vfill",
     "",
-    "\\footnotesize",
-    "All prices are in AUD and exclude GST.  ",
-    "Cost estimated and quotes are valid for 4 weeks.  ",
-    "Purchase orders and additional price enquires should be directed to Daniela Zalcenstein (zalcenstein.d@wehi.edu.au).",
+    "\\headerfont\\fontsize{9}{11}\\selectfont\\color{darkgrey}\\bfseries\\noindent",
+    "All prices are in AUD and exclude GST. \\\\",
+    "Cost estimated and quotes are valid for 4 weeks. \\\\",
+    "Purchase orders and additional price enquiries should be directed to Daniela Zalcenstein (zalcenstein.d@wehi.edu.au).",
     sep = "\n"
   )
   
   temp_rmd <- file.path(tempdir(), "invoice.Rmd")
+  
+  if (file.exists("pdf_header.png")) {
+    file.copy("pdf_header.png", file.path(tempdir(), "pdf_header.png"), overwrite = TRUE)
+  }
+  
   writeLines(rmd_content, temp_rmd)
   
   params_list <- list(
@@ -358,7 +388,7 @@ generate_pdf_quote <- function(input, cart_data, file) {
 }
 
 escape_latex <- function(x) {
-  # Function to format strings and check for special characters for LaTeX.
+  # Escapes special LaTeX characters to prevent rendering errors.
   #
   # Arguments:
   # x(string) - The string to be formatted
@@ -368,6 +398,6 @@ escape_latex <- function(x) {
   x <- gsub("\\\\", "\\\\textbackslash{}", x) 
   x <- gsub("([#$%&_{}])", "\\\\\\1", x)
   x <- gsub("\\^", "\\\\textasciicircum{}", x)
-  x <- gsub("~", "\\\\textasciitilde{}", x)
+  x <- gsub("~", "\\textasciitilde{}", x)
   return(x)
 }
