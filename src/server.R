@@ -40,21 +40,38 @@ main_server_logic <- function(input, output, session, values) {
   # --- UI Output: Application/Platform Button Stack ---
   # Generates a vertical list of rectangular buttons with light-to-dark blue gradient
   output$application_button_ui <- renderUI({
-    req(values$data)
+    req(values$data$application_protocol_item)
     
-    applications <- sort(unique(c(unlist(values$data$application_item$Application, use.names = FALSE), 
-                               unlist(values$data$application_proc$Application, use.names = FALSE))))
+    applications <- sort(unique(c(unlist(values$data$application_protocol_item$Application, use.names = FALSE), 
+                               unlist(values$data$application_protocol_proc$Application, use.names = FALSE))))
     applications <- applications[!(applications %in% c("ALL_APPLICATIONS"))]
-    choices <- c("All", applications)
+    application_choices <- c("All", applications)
     
-    create_application_select(choices)
+    create_application_select(application_choices)
+  })
+  
+  output$protocol_button_ui <- renderUI({
+    req(values$data$application_protocol_item)
+    
+    protocols <- sort(unique(c(unlist(values$data$application_protocol_item$Protocol, use.names = FALSE), 
+                               unlist(values$data$application_protocol_proc$Protocol, use.names = FALSE))))
+    protocols <- protocols[!(protocols %in% c("ALL_PROTOCOLS"))]
+    protocol_choices <- c("All", protocols)
+    
+    create_protocol_select(protocol_choices)
   })
   
   
-  # --- Observer: Handle Platform Button Clicks ---
+  # --- Observer: Handle Application and Protocol Button Clicks ---
   # If 'All' is selected, filter is bypassed and user moves to next step
   observeEvent(input$btn_application_click, {
+    req(input$btn_application_click)
     values$application_select <- input$btn_application_click
+  })
+  
+  observeEvent(input$btn_protocol_click, {
+    req(values$application_select, input$btn_protocol_click)
+    values$protocol_select <- input$btn_protocol_click
     nav_select(id = "nav_tabs", selected = "tab_items")
   })
   

@@ -6,17 +6,27 @@ create_items_datatable <- function(input, values) {
   # input(list) - List of input values from Shiny server function
   # values(list) - List of Reactive Values used in server
   
-  req(values$data$items, values$application_select)
+  req(values$data$items, values$application_select, values$protocol_select)
   
   items_df <- values$data$items
   
   # Filter only if a specific application (not 'All') is selected
   if(values$application_select != "All") {
-    common_items <- values$data$application_item %>% 
+    common_items <- values$data$application_protocol_item %>% 
       rowwise() %>%
-      filter(any(Application %in% values$application_select) | any(Application == "ALL_PLATFORMS")) %>%
+      filter(any(Application %in% values$application_select) | any(Application == "ALL_APPLICATIONS")) %>%
+      filter((any(Protocol %in% values$protocol_select) | any(Protocol == "ALL_PROTOCOLS")), values$protocol_select != "All") %>%
       ungroup()
     items_df <- items_df %>% semi_join(common_items, by=c("Item", "Brand"))
+    # 
+    # # Filter only if a specific protocol (not 'All') is selected  
+    # if(values$protocol_select != "All") {
+    #   common_items <- values$data$application_protocol_item %>% 
+    #     rowwise() %>%
+    #     filter(any(Protocol %in% values$protocol_select) | any(Protocol == "ALL_PROTOCOLS")) %>%
+    #     ungroup()
+    #   items_df <- items_df %>% semi_join(common_items, by=c("Item", "Brand"))
+    # }
   }
 
   #Filter by brand and category
@@ -59,9 +69,9 @@ update_cart_items <- function(input, values) {
   if(input$filter_category != "All") df_full <- df_full %>% filter(Category == input$filter_category)
   
   if(values$application_select != "All") {
-    common_items <- values$data$application_item %>% 
+    common_items <- values$data$application_protocol_item %>% 
       rowwise() %>%
-      filter(any(Application %in% values$application_select) | any(Application == "ALL_PLATFORMS")) %>%
+      filter(any(Application %in% values$application_select) | any(Application == "ALL_APPLICATIONS")) %>%
       ungroup()
     df_full <- df_full %>% semi_join(common_items, by=c("Item", "Brand"))
   } 

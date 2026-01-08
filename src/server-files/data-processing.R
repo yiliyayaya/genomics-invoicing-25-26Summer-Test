@@ -15,13 +15,13 @@ process_pricing_logic <- function(file_path) {
   raw_items <- read_excel(file_path, sheet = 1, col_names = TRUE)
   
   df_items <- process_items_data(raw_items)
-  df_application_item <- get_item_application_data(raw_items)
+  df_item_application_protocol <- get_item_application_protocol(raw_items)
   
   # Service charges processing logic
   raw_services <- read_excel(file_path, sheet = 2, col_names = TRUE)
   
   df_services <- process_services_data(raw_services)
-  df_application_process <- get_services_application_data(raw_services)
+  df_service_application_protocol <- get_service_application_protocol(raw_services)
   
   # Discounts processing logic
   raw_discounts <- read_excel(file_path, sheet = 4, col_names = TRUE)
@@ -30,7 +30,7 @@ process_pricing_logic <- function(file_path) {
   
   # Return structured list containing all processed data and logic maps
   return(list(items = df_items, services = df_services, logic_proc = processing_logic, logic_item = item_logic, 
-              application_item = df_application_item, application_proc = df_application_process, supplier_discount = df_discounts))
+              application_protocol_item = df_item_application_protocol, application_protocol_proc = df_service_application_protocol, supplier_discount = df_discounts))
 }
 
 
@@ -116,25 +116,29 @@ process_items_data <- function(raw_items_data) {
   return(processed_items)
 }
 
-get_item_application_data <- function(raw_items_data) {
+get_item_application_protocol <- function(raw_items_data) {
   # Reads the raw price list data and returns a dataframe of item-application relations
   #
   # Arguments:
   # raw_items_data(dataframe) - The raw price item list data to be processed
   
-  item_application_needed_cols <- c("Brand", "Item", "Application")
+  application_protocol_needed_cols <- c("Brand", "Item", "Application", "Protocol")
   
-  application_item_data <- raw_items_data[, item_application_needed_cols]
-  application_item_data$Application[is.na(application_item_data$Application)] <- "ALL_APPLICATIONS"
-  application_item_data <- application_item_data %>% 
-    setNames(c("Brand", "Item", "Application_String")) %>%
+  item_data <- raw_items_data[, application_protocol_needed_cols]
+  item_data$Application[is.na(item_data$Application)] <- "ALL_APPLICATIONS"
+  item_data$Protocol[is.na(item_data$Protocol)] <- "ALL_PROTOCOLS"
+  item_data <- item_data %>% 
+    setNames(c("Brand", "Item", "Application_String", "Protocol_String")) %>%
     mutate(Brand = as.character(Brand),
            Item = as.character(Item),
-           Application_String = as.character(Application_String),
-           Application = strsplit(Application_String, split = ";", fixed = TRUE)) %>%
-    select(-Application_String)
+           Application_String = as.character(replace_na(as.character(Application_String), "ALL_APPLICATIONS")),
+           Protocol_String = as.character(replace_na(as.character(Protocol_String), "ALL_PROTOCOLS")),
+           Application = strsplit(Application_String, split = ";", fixed = TRUE),
+           Protocol = strsplit(Protocol_String, split = ";", fixed = TRUE)) %>%
+    select(-Application_String) %>%
+    select(-Protocol_String)
   
-  return(application_item_data)
+  return(item_data)
 }
 
 process_services_data <- function(raw_services_data) {
@@ -153,23 +157,26 @@ process_services_data <- function(raw_services_data) {
   return(processed_services)
 }
 
-get_services_application_data <- function(raw_services_data) {
+get_service_application_protocol <- function(raw_services_data) {
   # Reads the raw processing charges data and returns a dataframe of services-application relations
   #
   # Arguments:
   # raw_services_data(dataframe) - The raw processing charges list data to be processed
   
-  service_application_needed_col <- c("Service", "Application")
+  application_protocol_needed_cols <- c("Service", "Application", "Protocol")
   
-  application_service_data <- raw_services_data[, service_application_needed_col]
-  application_service_data <- application_service_data %>% 
-    setNames(c("Service", "Application_String")) %>%
+  service_data <- raw_services_data[, application_protocol_needed_cols]
+  service_data <- service_data %>% 
+    setNames(c("Service", "Application_String", "Protocol_String")) %>%
     mutate(Service = as.character(Service),
-           Application_String = as.character(Application_String),
-           Application = strsplit(Application_String, ";", fixed = TRUE)) %>%
-    select(-Application_String)
+           Application_String = as.character(replace_na(as.character(Application_String), "ALL_APPLICATIONS")),
+           Protocol_String = as.character(replace_na(as.character(Protocol_String), "ALL_PROTOCOLS")),
+           Application = strsplit(Application_String, ";", fixed = TRUE),
+           Protocol = strsplit(Protocol_String, ";", fixed = TRUE)) %>%
+    select(-Application_String) %>%
+    select(-Protocol_String)
   
-  return(application_service_data)
+  return(service_data)
 }
 
 process_discounts_data <- function(raw_discounts_data) {
