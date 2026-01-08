@@ -48,10 +48,25 @@ main_server_logic <- function(input, output, session, values) {
   })
   
   output$protocol_button_ui <- renderUI({
-    req(values$data$application_protocol_item)
+    req(values$data$application_protocol_item, values$application_select)
+    selected_application <- values$application_select
     
-    protocols <- sort(unique(c(unlist(values$data$application_protocol_item$Protocol, use.names = FALSE), 
-                               unlist(values$data$application_protocol_proc$Protocol, use.names = FALSE))))
+    # Filter by applications for possible protocols
+    if(selected_application != "All") {
+      items_data <- values$data$application_protocol_item %>% 
+        rowwise() %>%
+        filter(selected_application %in% Application)
+      services_data <- values$data$application_protocol_proc %>% 
+        rowwise() %>% 
+        filter(selected_application %in% Application)
+    } else {
+      items_data <- values$data$application_protocol_item
+      services_data <- values$data$application_protocol_proc
+    }
+    
+    # Create list of protocols to select
+    protocols <- sort(unique(c(unlist(items_data$Protocol, use.names = FALSE), 
+                               unlist(services_data$Protocol, use.names = FALSE))))
     protocols <- protocols[!(protocols %in% c("ALL_PROTOCOLS"))]
     protocol_choices <- c("All", protocols)
     
