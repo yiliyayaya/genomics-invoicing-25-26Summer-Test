@@ -12,9 +12,10 @@ create_services_datatable <- function(input, values) {
   
   # Filter only if a specific application (not 'All') is selected
   if(values$application_select != "All") {
-    common_services <- values$data$application_proc %>% 
+    common_services <- values$data$application_protocol_proc %>% 
       rowwise() %>%
       filter(any(Application %in% values$application_select) | any(Application == "ALL_APPLICATIONS")) %>%
+      filter((any(Protocol %in% values$protocol_select) | any(Protocol == "ALL_PROTOCOLS")), values$protocol_select != "All") %>%
       ungroup()
     df <- df[df$Service %in% common_services$Service, ]
   }
@@ -57,9 +58,10 @@ update_cart_services <- function(input, values) {
   if(input$filter_group != "All") df_full <- df_full %>% filter(Group == input$filter_group)
   
   if(values$application_select != "All") {
-    common_services <- values$data$application_proc %>% 
+    common_services <- values$data$application_protocol_proc %>% 
       rowwise() %>%
       filter(any(Application %in% values$application_select) | any(Application == "ALL_APPLICATIONS")) %>%
+      filter((any(Protocol %in% values$protocol_select) | any(Protocol == "ALL_PROTOCOLS")), values$protocol_select != "All") %>%
       ungroup()
     df_full <- df_full[df_full$Service %in% common_services$Service, ]
   }

@@ -18,15 +18,6 @@ create_items_datatable <- function(input, values) {
       filter((any(Protocol %in% values$protocol_select) | any(Protocol == "ALL_PROTOCOLS")), values$protocol_select != "All") %>%
       ungroup()
     items_df <- items_df %>% semi_join(common_items, by=c("Item", "Brand"))
-    # 
-    # # Filter only if a specific protocol (not 'All') is selected  
-    # if(values$protocol_select != "All") {
-    #   common_items <- values$data$application_protocol_item %>% 
-    #     rowwise() %>%
-    #     filter(any(Protocol %in% values$protocol_select) | any(Protocol == "ALL_PROTOCOLS")) %>%
-    #     ungroup()
-    #   items_df <- items_df %>% semi_join(common_items, by=c("Item", "Brand"))
-    # }
   }
 
   #Filter by brand and category
@@ -72,6 +63,7 @@ update_cart_items <- function(input, values) {
     common_items <- values$data$application_protocol_item %>% 
       rowwise() %>%
       filter(any(Application %in% values$application_select) | any(Application == "ALL_APPLICATIONS")) %>%
+      filter((any(Protocol %in% values$protocol_select) | any(Protocol == "ALL_PROTOCOLS")), values$protocol_select != "All") %>%
       ungroup()
     df_full <- df_full %>% semi_join(common_items, by=c("Item", "Brand"))
   } 
