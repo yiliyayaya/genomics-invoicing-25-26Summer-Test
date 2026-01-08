@@ -3,7 +3,7 @@ source("src/server-files/data-processing.R", local=TRUE)
 source("src/server-files/final-quote.R", local=TRUE)
 source("src/server-files/item-select.R", local=TRUE)
 source("src/server-files/output.R", local=TRUE)
-source("src/server-files/application-select.R", local=TRUE)
+source("src/server-files/application-protocol-select.R", local=TRUE)
 
 main_server_logic <- function(input, output, session, values) {
   # --- Startup Notification ---
@@ -26,14 +26,11 @@ main_server_logic <- function(input, output, session, values) {
     
     tryCatch({
       values$data <- process_pricing_logic(input$master_sheet$datapath)
-      
       populate_select_lists(session, values$data)
       
       showNotification("Data loaded successfully!", type = "message")
     }, error = function(e) {
       showNotification(paste("Error loading file:", e$message), type = "error")
-      print(e$message)
-      print(e)
     })
   })
   
@@ -43,7 +40,7 @@ main_server_logic <- function(input, output, session, values) {
     req(values$data$application_protocol_item)
     
     applications <- sort(unique(c(unlist(values$data$application_protocol_item$Application, use.names = FALSE), 
-                               unlist(values$data$application_protocol_proc$Application, use.names = FALSE))))
+                                  unlist(values$data$application_protocol_proc$Application, use.names = FALSE))))
     applications <- applications[!(applications %in% c("ALL_APPLICATIONS"))]
     application_choices <- c("All", applications)
     

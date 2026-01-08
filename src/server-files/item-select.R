@@ -7,22 +7,7 @@ create_items_datatable <- function(input, values) {
   # values(list) - List of Reactive Values used in server
   
   req(values$data$items, values$application_select, values$protocol_select)
-  
-  items_df <- values$data$items
-  
-  # Filter only if a specific application (not 'All') is selected
-  if(values$application_select != "All") {
-    common_items <- values$data$application_protocol_item %>% 
-      rowwise() %>%
-      filter(any(Application %in% values$application_select) | any(Application == "ALL_APPLICATIONS")) %>%
-      filter((any(Protocol %in% values$protocol_select) | any(Protocol == "ALL_PROTOCOLS")), values$protocol_select != "All") %>%
-      ungroup()
-    items_df <- items_df %>% semi_join(common_items, by=c("Item", "Brand"))
-  }
-
-  #Filter by brand and category
-  if(input$filter_item_brand != "All") items_df <- items_df %>% filter(Brand == input$filter_item_brand)
-  if(input$filter_category != "All") items_df <- items_df %>% filter(Category == input$filter_category)
+  items_df <- filter_items_data(input, values)
 
   # Calculate Internal/External Surcharge prices
   internal_mult <- values$data$logic_item[["Internal"]]
@@ -53,27 +38,14 @@ update_cart_items <- function(input, values) {
   # input(list) - List of input values from Shiny server function
   # values(list) - List of Reactive Values used in server
   
-  if (is.null(input$table_items_catalog_rows_selected)) return()
-  
-  df_full <- values$data$items
-  if(input$filter_item_brand != "All") df_full <- df_full %>% filter(Brand == input$filter_item_brand)
-  if(input$filter_category != "All") df_full <- df_full %>% filter(Category == input$filter_category)
-  
-  if(values$application_select != "All") {
-    common_items <- values$data$application_protocol_item %>% 
-      rowwise() %>%
-      filter(any(Application %in% values$application_select) | any(Application == "ALL_APPLICATIONS")) %>%
-      filter((any(Protocol %in% values$protocol_select) | any(Protocol == "ALL_PROTOCOLS")), values$protocol_select != "All") %>%
-      ungroup()
-    df_full <- df_full %>% semi_join(common_items, by=c("Item", "Brand"))
-  } 
+  req(input$table_items_catalog_rows_selected)
+  df_full <- filter_items_data(input, values)
   
   selected_indices <- input$table_items_catalog_rows_selected
   items_to_add <- df_full[selected_indices, ]
-  existing_codes <- values$cart$Product_Code
-  items_to_add_unique <- items_to_add %>% filter(!Product_Code %in% existing_codes)
+  items_to_add_unique <- items_to_add %>% filter(!Product_Code %in% values$cart$Product_Code)
   
-  if (nrow(items_to_add_unique) == 0) return()
+  req(items_to_add_unique)
   
   new_entries <- items_to_add_unique %>%
     mutate(
@@ -90,4 +62,27 @@ update_cart_items <- function(input, values) {
   values$cart <- bind_rows(values$cart, new_entries) %>% as.data.frame()
   
   showNotification(paste(nrow(new_entries), "new items added."), type = "message")
+}
+
+filter_items_data <- function(input, values) {
+  # Function that takes filters items data based on user inputs.
+  #
+  # Arguments:
+  # input(list) - List of input values from Shiny server function
+  # values(list) - List of Reactive Values used in server
+  
+  items_df <- values$data$items
+  
+  if(input$filter_item_brand != "All") items_df <- items_df %>% filter(Brand == input$filter_item_brand)
+  if(input$filter_category != "All") items_df <- items_df %>% filter(Category == input$filter_category)
+  if(values$application_select != "All") {
+    common_items <- values$data$application_protocol_item %>% 
+      rowwise() %>%
+      filter(any(Application %in% values$application_select) | any(Application == "ALL_APPLICATIONS")) %>%
+      filter((any(Protocol %in% values$protocol_select) | any(Protocol == "ALL_PROTOCOLS")), values$protocol_select != "All") %>%
+      ungroup()
+    items_df <- items_df %>% semi_join(common_items, by=c("Item", "Brand"))
+  }  
+  
+  return(items_df)
 }

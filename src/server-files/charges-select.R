@@ -7,18 +7,7 @@ create_services_datatable <- function(input, values) {
   # values(list) - List of Reactive Values used in server
   
   req(values$data)
-  df <- values$data$services
-  if(input$filter_group != "All") df <- df %>% filter(Group == input$filter_group)
-  
-  # Filter only if a specific application (not 'All') is selected
-  if(values$application_select != "All") {
-    common_services <- values$data$application_protocol_proc %>% 
-      rowwise() %>%
-      filter(any(Application %in% values$application_select) | any(Application == "ALL_APPLICATIONS")) %>%
-      filter((any(Protocol %in% values$protocol_select) | any(Protocol == "ALL_PROTOCOLS")), values$protocol_select != "All") %>%
-      ungroup()
-    df <- df[df$Service %in% common_services$Service, ]
-  }
+  df <- filter_services_data(input, values)
   
   m_int <- values$data$logic_proc[["Internal"]]
   m_col <- values$data$logic_proc[["Ext.Collaborative"]]
@@ -54,24 +43,13 @@ update_cart_services <- function(input, values) {
   
   if (is.null(input$table_proc_catalog_rows_selected)) return()
   
-  df_full <- values$data$services
-  if(input$filter_group != "All") df_full <- df_full %>% filter(Group == input$filter_group)
-  
-  if(values$application_select != "All") {
-    common_services <- values$data$application_protocol_proc %>% 
-      rowwise() %>%
-      filter(any(Application %in% values$application_select) | any(Application == "ALL_APPLICATIONS")) %>%
-      filter((any(Protocol %in% values$protocol_select) | any(Protocol == "ALL_PROTOCOLS")), values$protocol_select != "All") %>%
-      ungroup()
-    df_full <- df_full[df_full$Service %in% common_services$Service, ]
-  }
+  df_full <- filter_services_data(input, values)
   
   selected_indices <- input$table_proc_catalog_rows_selected
   items_to_add <- df_full[selected_indices, ]
-  existing_names <- values$cart$Name
-  items_to_add_unique <- items_to_add %>% filter(!Service %in% existing_names)
+  items_to_add_unique <- items_to_add %>% filter(!Service %in% values$cart$Name)
   
-  if (nrow(items_to_add_unique) == 0) return()
+  req(items_to_add_unique)
   
   new_entries <- items_to_add_unique %>%
     mutate(
@@ -90,4 +68,26 @@ update_cart_services <- function(input, values) {
   
   values$cart <- bind_rows(values$cart, new_entries) %>% as.data.frame()
   showNotification(paste(nrow(new_entries), "new services added."), type = "message")
+}
+
+filter_services_data <- function(input, values) {
+  # Function that takes filters services data based on user inputs.
+  #
+  # Arguments:
+  # input(list) - List of input values from Shiny server function
+  # values(list) - List of Reactive Values used in server
+  
+  services_df <- values$data$services
+  
+  if(input$filter_group != "All") services_df <- services_df %>% filter(Group == input$filter_group)
+  if(values$application_select != "All") {
+    common_services <- values$data$application_protocol_proc %>% 
+      rowwise() %>%
+      filter(any(Application %in% values$application_select) | any(Application == "ALL_APPLICATIONS")) %>%
+      filter((any(Protocol %in% values$protocol_select) | any(Protocol == "ALL_PROTOCOLS")), values$protocol_select != "All") %>%
+      ungroup()
+    services_df <- services_df[services_df$Service %in% common_services$Service, ]
+  }
+  
+  return(services_df)
 }
