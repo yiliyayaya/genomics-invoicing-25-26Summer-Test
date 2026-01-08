@@ -9,7 +9,6 @@ structure_application_protocol_page <- function() {
       h3("Application Select"),
       # Vertical button stack generated dynamically
       uiOutput("application_button_ui"),
-      br(),
       h3("Protocol Select"),
       uiOutput("protocol_button_ui")
     )

@@ -41,15 +41,17 @@ main_ui_features <- function() {
         font-weight: bold !important;
         opacity: 1 !important;
       }
-      /* Layout for platform vertical button stack with tight spacing and increased length */
-      .platform-btn-container {
+      /* Layout for application vertical button stack */
+      .application-btn-container {
         display: flex;
         flex-direction: column;
         gap: 4px !important;
         padding: 10px 15px !important;
+        height: 40%;
+        overflow: auto;
       }
-      .platform-action-btn {
-        width: 800px !important; /* Increased length of the buttons as requested */
+      .application-action-btn {
+        width: 60% !important; 
         text-align: left;
         font-weight: bold;
         border: none;
@@ -58,7 +60,30 @@ main_ui_features <- function() {
         transition: transform 0.1s, opacity 0.2s;
         box-shadow: 1px 1px 3px rgba(0,0,0,0.1);
       }
-      .platform-action-btn:hover {
+      .application-action-btn:hover {
+        transform: scale(1.01);
+        opacity: 0.9;
+      }
+      /* Layout for protocol vertical button stack */
+      .protocol-btn-container {
+        display: flex;
+        flex-direction: column;
+        gap: 4px !important;
+        padding: 10px 15px !important;
+        height: 40%;
+        overflow: auto;
+      }
+      .protocol-action-btn {
+        width: 60% !important;
+        text-align: left;
+        font-weight: bold;
+        border: none;
+        padding: 8px 25px !important;
+        border-radius: 4px !important;
+        transition: transform 0.1s, opacity 0.2s;
+        box-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+      }
+      .protocol-action-btn:hover {
         transform: scale(1.01);
         opacity: 0.9;
       }
