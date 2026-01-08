@@ -15,13 +15,13 @@ process_pricing_logic <- function(file_path) {
   raw_items <- read_excel(file_path, sheet = 1, col_names = TRUE)
   
   df_items <- process_items_data(raw_items)
-  df_platform_item <- get_item_platform_data(raw_items)
+  df_item_application_protocol <- get_item_application_protocol(raw_items)
   
   # Service charges processing logic
   raw_services <- read_excel(file_path, sheet = 2, col_names = TRUE)
   
   df_services <- process_services_data(raw_services)
-  df_platform_process <- get_services_platform_data(raw_services)
+  df_service_application_protocol <- get_service_application_protocol(raw_services)
   
   # Discounts processing logic
   raw_discounts <- read_excel(file_path, sheet = 4, col_names = TRUE)
@@ -30,7 +30,7 @@ process_pricing_logic <- function(file_path) {
   
   # Return structured list containing all processed data and logic maps
   return(list(items = df_items, services = df_services, logic_proc = processing_logic, logic_item = item_logic, 
-              platform_item = df_platform_item, platform_proc = df_platform_process, supplier_discount = df_discounts))
+              application_protocol_item = df_item_application_protocol, application_protocol_proc = df_service_application_protocol, supplier_discount = df_discounts))
 }
 
 
@@ -99,7 +99,7 @@ process_items_data <- function(raw_items_data) {
   
   processed_items <- raw_items_data %>%
     select(1:8) %>% 
-    setNames(c("Product_Code", "Protocol", "Item", "Category", "Description", "Base_Cost", "Add_Cost", "Is_Constant")) %>%
+    setNames(c("Product_Code", "Brand", "Item", "Category", "Description", "Base_Cost", "Add_Cost", "Is_Constant")) %>%
     mutate(
       Base_Cost = as.numeric(Base_Cost),
       Add_Cost = as.numeric(replace_na(Add_Cost, 0)),
@@ -116,25 +116,29 @@ process_items_data <- function(raw_items_data) {
   return(processed_items)
 }
 
-get_item_platform_data <- function(raw_items_data) {
-  # Reads the raw price list data and returns a dataframe of item-platform relations
+get_item_application_protocol <- function(raw_items_data) {
+  # Reads the raw price list data and returns a dataframe of item-application relations
   #
   # Arguments:
   # raw_items_data(dataframe) - The raw price item list data to be processed
   
-  item_platform_needed_cols <- c("Protocol", "Item", "Platform")
+  application_protocol_needed_cols <- c("Brand", "Item", "Application", "Protocol")
   
-  platform_item_data <- raw_items_data[, item_platform_needed_cols]
-  platform_item_data$Platform[is.na(platform_item_data$Platform)] <- "ALL_PLATFORMS"
-  platform_item_data <- platform_item_data %>% 
-    setNames(c("Protocol", "Item", "Platform_String")) %>%
-    mutate(Protocol = as.character(Protocol),
+  item_data <- raw_items_data[, application_protocol_needed_cols]
+  item_data$Application[is.na(item_data$Application)] <- "ALL_APPLICATIONS"
+  item_data$Protocol[is.na(item_data$Protocol)] <- "ALL_PROTOCOLS"
+  item_data <- item_data %>% 
+    setNames(c("Brand", "Item", "Application_String", "Protocol_String")) %>%
+    mutate(Brand = as.character(Brand),
            Item = as.character(Item),
-           Platform_String = as.character(Platform_String),
-           Platform = strsplit(Platform_String, split = ";", fixed = TRUE)) %>%
-    select(-Platform_String)
+           Application_String = as.character(replace_na(as.character(Application_String), "ALL_APPLICATIONS")),
+           Protocol_String = as.character(replace_na(as.character(Protocol_String), "ALL_PROTOCOLS")),
+           Application = strsplit(Application_String, split = ";", fixed = TRUE),
+           Protocol = strsplit(Protocol_String, split = ";", fixed = TRUE)) %>%
+    select(-Application_String) %>%
+    select(-Protocol_String)
   
-  return(platform_item_data)
+  return(item_data)
 }
 
 process_services_data <- function(raw_services_data) {
@@ -153,23 +157,26 @@ process_services_data <- function(raw_services_data) {
   return(processed_services)
 }
 
-get_services_platform_data <- function(raw_services_data) {
-  # Reads the raw processing charges data and returns a dataframe of services-platform relations
+get_service_application_protocol <- function(raw_services_data) {
+  # Reads the raw processing charges data and returns a dataframe of services-application relations
   #
   # Arguments:
   # raw_services_data(dataframe) - The raw processing charges list data to be processed
   
-  service_platform_needed_col <- c("Service", "Platform")
+  application_protocol_needed_cols <- c("Service", "Application", "Protocol")
   
-  platform_service_data <- raw_services_data[, service_platform_needed_col]
-  platform_service_data <- platform_service_data %>% 
-    setNames(c("Service", "Platform_String")) %>%
+  service_data <- raw_services_data[, application_protocol_needed_cols]
+  service_data <- service_data %>% 
+    setNames(c("Service", "Application_String", "Protocol_String")) %>%
     mutate(Service = as.character(Service),
-           Platform_String = as.character(Platform_String),
-           Platform = strsplit(Platform_String, ";", fixed = TRUE)) %>%
-    select(-Platform_String)
+           Application_String = as.character(replace_na(as.character(Application_String), "ALL_APPLICATIONS")),
+           Protocol_String = as.character(replace_na(as.character(Protocol_String), "ALL_PROTOCOLS")),
+           Application = strsplit(Application_String, ";", fixed = TRUE),
+           Protocol = strsplit(Protocol_String, ";", fixed = TRUE)) %>%
+    select(-Application_String) %>%
+    select(-Protocol_String)
   
-  return(platform_service_data)
+  return(service_data)
 }
 
 process_discounts_data <- function(raw_discounts_data) {

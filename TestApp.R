@@ -1,6 +1,6 @@
-source("src/server.R")
-source("src/ui.R")
-source("requirements/requirements.R")
+source("src/server.R", local=TRUE)
+source("src/ui.R", local=TRUE)
+source("requirements/requirements.R", local=TRUE)
 # ==============================================================================
 # SECTION 1: PACKAGE MANAGEMENT & SETUP
 # ==============================================================================
@@ -21,6 +21,7 @@ library(shinyjs)      # For JavaScript operations (hiding/disabling inputs, oncl
 library(tinytex)      # Helper for compiling LaTeX to PDF
 library(RColorBrewer) # For professional color palettes
 
+# UI Interface structure
 ui <- main_ui_features()
 
 server <- function(input, output, session) {
@@ -58,7 +59,9 @@ server <- function(input, output, session) {
     )
   )
   
+  # Backend and processing logic
   main_server_logic(input, output, session, values)
+  # PDF and Excel output logic
   main_output_logic(input, output, values$cart)
 }
 

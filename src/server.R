@@ -1,9 +1,9 @@
-source("src/server-files/charges-select.R")
-source("src/server-files/data-processing.R")
-source("src/server-files/final-quote.R")
-source("src/server-files/item-select.R")
-source("src/server-files/output.R")
-source("src/server-files/platform-select.R")
+source("src/server-files/charges-select.R", local=TRUE)
+source("src/server-files/data-processing.R", local=TRUE)
+source("src/server-files/final-quote.R", local=TRUE)
+source("src/server-files/item-select.R", local=TRUE)
+source("src/server-files/output.R", local=TRUE)
+source("src/server-files/application-protocol-select.R", local=TRUE)
 
 main_server_logic <- function(input, output, session, values) {
   # --- Startup Notification ---
@@ -26,7 +26,6 @@ main_server_logic <- function(input, output, session, values) {
     
     tryCatch({
       values$data <- process_pricing_logic(input$master_sheet$datapath)
-      
       populate_select_lists(session, values$data)
       
       showNotification("Data loaded successfully!", type = "message")
@@ -35,23 +34,56 @@ main_server_logic <- function(input, output, session, values) {
     })
   })
   
-  # --- UI Output: Platform Button Stack ---
+  # --- UI Output: Application/Platform Button Stack ---
   # Generates a vertical list of rectangular buttons with light-to-dark blue gradient
-  output$platform_button_ui <- renderUI({
-    req(values$data)
+  output$application_button_ui <- renderUI({
+    req(values$data$application_protocol_item)
     
-    platforms <- sort(unique(c(unlist(values$data$platform_item$Platform, use.names = FALSE), 
-                               unlist(values$data$platform_proc$Platform, use.names = FALSE))))
-    platforms <- platforms[!(platforms %in% c("ALL_PLATFORMS"))]
-    choices <- c("All", platforms)
+    applications <- sort(unique(c(unlist(values$data$application_protocol_item$Application, use.names = FALSE), 
+                                  unlist(values$data$application_protocol_proc$Application, use.names = FALSE))))
+    applications <- applications[!(applications %in% c("ALL_APPLICATIONS"))]
+    application_choices <- c("All", applications)
     
-    create_platform_select(choices)
+    create_application_select(application_choices)
   })
   
-  # --- Observer: Handle Platform Button Clicks ---
+  output$protocol_button_ui <- renderUI({
+    req(values$data$application_protocol_item, values$application_select)
+    selected_application <- values$application_select
+    
+    # Filter by applications for possible protocols
+    if(selected_application != "All") {
+      items_data <- values$data$application_protocol_item %>% 
+        rowwise() %>%
+        filter(selected_application %in% Application)
+      services_data <- values$data$application_protocol_proc %>% 
+        rowwise() %>% 
+        filter(selected_application %in% Application)
+    } else {
+      items_data <- values$data$application_protocol_item
+      services_data <- values$data$application_protocol_proc
+    }
+    
+    # Create list of protocols to select
+    protocols <- sort(unique(c(unlist(items_data$Protocol, use.names = FALSE), 
+                               unlist(services_data$Protocol, use.names = FALSE))))
+    protocols <- protocols[!(protocols %in% c("ALL_PROTOCOLS"))]
+    protocol_choices <- c("All", protocols)
+    
+    create_protocol_select(protocol_choices)
+  })
+  
+  
+  # --- Observer: Handle Application and Protocol Button Clicks ---
   # If 'All' is selected, filter is bypassed and user moves to next step
-  observeEvent(input$btn_platform_click, {
-    values$platform_select <- input$btn_platform_click
+  observeEvent(input$btn_application_click, {
+    req(input$btn_application_click)
+    values$application_select <- input$btn_application_click
+  })
+  
+  observeEvent(input$btn_protocol_click, {
+    req(values$application_select, input$btn_protocol_click)
+    values$protocol_select <- input$btn_protocol_click
     nav_select(id = "nav_tabs", selected = "tab_items")
   })
   
@@ -122,12 +154,12 @@ main_server_logic <- function(input, output, session, values) {
 populate_select_lists <- function(session, data_list) {
   req(session, data)
   
-  protocols_sorted <- sort(unique(data_list$items$Protocol))
+  item_brand_sorted <- sort(unique(data_list$items$Brand))
   cats_sorted <- sort(unique(data_list$items$Category))
   groups_sorted <- sort(unique(data_list$services$Group))
   supplier_discount_labels <- sort(unique(data_list$supplier_discount$Display_Text))
   
-  updateSelectInput(session, "filter_protocol", choices = c("All", protocols_sorted))
+  updateSelectInput(session, "filter_item_brand", choices = c("All", item_brand_sorted))
   updateSelectInput(session, "filter_category", choices = c("All", cats_sorted))
   updateSelectInput(session, "filter_group", choices = c("All", groups_sorted))
   updateSelectInput(session, "supplier_discount_select", choices = c("", supplier_discount_labels))
