@@ -38,8 +38,9 @@ server <- function(input, output, session) {
   
   # --- Reactive Values ---
   values <- reactiveValues(
-    data = NULL,
-    platform_select = "All", 
+    application_select = NULL,
+    protocol_select = NULL,
+    data = list(),
     cart = data.frame(
       Cart_ID = character(),
       Product_Code = character(),
