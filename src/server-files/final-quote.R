@@ -57,21 +57,14 @@ apply_percentage_discount <- function(input, values_rv) {
   # values_rv(reactiveValues) - List of reactiveValues used in server
   
   req(input$table_final_quote_rows_selected, input$percent_discount_input)
-  
   if(input$percent_discount_input < 0 | input$percent_discount_input > 100) {
     showNotification("Input Error: % Discount must be numeric between 0 and 100.", type = "warning")
     return()
   }
   
   discount_pct <- input$percent_discount_input
-  
   for (row_idx in input$table_final_quote_rows_selected) {
-    current_row <- values_rv$cart[row_idx, ]
-    values_rv$cart$Disc_Pct[row_idx] <- discount_pct
-    pre_discount_total <- current_row$Unit_Price * current_row$Quantity
-    discount_amt <- pre_discount_total * (discount_pct / 100)
-    values_rv$cart$Disc_Amt[row_idx] <- discount_amt
-    values_rv$cart$Final_Total[row_idx] <- pre_discount_total - discount_amt
+    edit_table(values_rv, row_idx, new_disc_pct = discount_pct)
   }
 }
 
@@ -83,28 +76,14 @@ apply_amount_discount <- function(input, values_rv) {
   # values_rv(reactiveValues) - List of reactiveValues used in server
   
   req(input$table_final_quote_rows_selected, input$amount_discount_input)
-
   if(input$amount_discount_input < 0) {
     showNotification("Input Error: $ Discount must non-negative.", type = "warning")
     return()
   }
   
   discount_amt <- input$amount_discount_input
-  
   for (row_idx in input$table_final_quote_rows_selected) {
-    current_row <- values_rv$cart[row_idx, ]
-    values_rv$cart$Disc_Amt[row_idx] <- discount_amt
-    pre_discount_total <- current_row$Unit_Price * current_row$Quantity
-    if(pre_discount_total < discount_amt) {
-      discount_pct <-  100
-      values_rv$cart$Disc_Amt[row_idx] <- pre_discount_total
-      values_rv$cart$Disc_Pct[row_idx] <- discount_pct
-      values_rv$cart$Final_Total[row_idx] <- 0
-    } else {
-      discount_pct <- (discount_amt / pre_discount_total) * 100
-      values_rv$cart$Disc_Pct[row_idx] <- discount_pct
-      values_rv$cart$Final_Total[row_idx] <- pre_discount_total - discount_amt  
-    }
+    edit_table(values_rv, row_idx, new_disc_amt = discount_amt)
   }
 }
 
@@ -121,15 +100,14 @@ apply_supplier_discount <- function(input, values_rv) {
   }
   
   discount_data <- values_rv$data$supplier_discount %>% filter(Display_Text == input$supplier_discount_select)
-  discount_pct <- discount_data$Amount[1] * 100  
-
   for (row_idx in input$table_final_quote_rows_selected) {
-    current_row <- values_rv$cart[row_idx, ]
-    values_rv$cart$Disc_Pct[row_idx] <- discount_pct
-    pre_discount_total <- current_row$Unit_Price * current_row$Quantity
-    discount_amt <- pre_discount_total * (discount_pct / 100)
-    values_rv$cart$Disc_Amt[row_idx] <- discount_amt
-    values_rv$cart$Final_Total[row_idx] <- pre_discount_total - discount_amt
+    if(discount_data$Type == "percentage") {
+      discount_pct <- discount_data$Amount[1] * 100
+      edit_table(values_rv, row_idx, new_disc_pct = discount_pct)
+    } else if (discount_data$Type == "amount") {
+      discount_amount <- discount_data$Amount[1]
+      edit_table(values_rv, row_idx, new_disc_amt = discount_amount)
+    }
   }  
 }
 
@@ -173,35 +151,59 @@ update_quote_table <- function(table_edits, values_rv) {
   # values_rv(reactiveValues) - List of reactiveValues used in server
   
   req(table_edits)
-  row_idx <- table_edits$row
-  col_idx <- table_edits$col 
+  row_idx <- table_edits$row 
+  col_idx <- table_edits$col
   new_val <- as.numeric(table_edits$value)
   
-  current_row <- values_rv$cart[row_idx, ]
-  price <- current_row$Unit_Price
-  qty   <- current_row$Quantity
-  
   if (col_idx == 5) {
-    qty <- new_val
-    values_rv$cart$Quantity[row_idx] <- qty
-    pct <- values_rv$cart$Disc_Pct[row_idx]
-    gross <- price * qty
-    disc_amt <- gross * (pct / 100)
-    values_rv$cart$Disc_Amt[row_idx] <- disc_amt
-    values_rv$cart$Final_Total[row_idx] <- gross - disc_amt
+    # Edit Quantity
+    edit_table(values_rv, row_idx, new_qty = new_val)
   } else if (col_idx == 6) { 
-    pct <- new_val
-    values_rv$cart$Disc_Pct[row_idx] <- pct
-    gross <- price * qty
-    disc_amt <- gross * (pct / 100)
-    values_rv$cart$Disc_Amt[row_idx] <- disc_amt
-    values_rv$cart$Final_Total[row_idx] <- gross - disc_amt
-  } else if (col_idx == 7) { 
-    amt <- new_val
-    values_rv$cart$Disc_Amt[row_idx] <- amt
-    gross <- price * qty
-    pct <- if(gross > 0) (amt / gross) * 100 else 0
-    values_rv$cart$Disc_Pct[row_idx] <- pct
-    values_rv$cart$Final_Total[row_idx] <- gross - amt
+    # Edit Discount %
+    edit_table(values_rv, row_idx, new_disc_pct = new_val)
+  } else if (col_idx == 7) {
+    # Edit Discount $
+    edit_table(values_rv, row_idx, new_disc_amt = new_val)
   }
+}
+
+edit_table <- function(values_rv, edited_row_idx, new_qty=NULL, new_disc_pct=NULL, new_disc_amt=NULL) {
+  # Function that updates the quote table based on given changed data of either quantity, discount % or discount amount $.
+  #
+  # Arguments:
+  # values_rv(reactiveValues) - List of reactiveValues used in server
+  # edited_row_idx (int) - The index of the edited row
+  # new_qty (int) - The new quantity of items 
+  # new_disc_pct (int) - The new discount %
+  # new_disc_amt (int) - The new discount amount $
+  
+  current_row <- values_rv$cart[edited_row_idx, ]
+  price <- current_row$Unit_Price
+  qty <- current_row$Quantity
+  pct <- current_row$Disc_Pct
+  amt <- current_row$Disc_Amt
+  
+  if(!is.null(new_qty)) {
+    req(new_qty >= 0)
+    qty <- new_qty
+  } else if(!is.null(new_disc_pct)) {
+    req(new_disc_pct >= 0)
+    pct <- new_disc_pct
+  } else if(!is.null(new_disc_amt)) {
+    req(new_disc_amt >= 0)
+    amt <- new_disc_amt
+  }
+  
+  gross <- price * qty
+  
+  if(!is.null(new_disc_amt)) {
+    pct <- if (gross > 0) (amt/gross) * 100 else 0
+  } else {
+    amt <- gross * (pct / 100)
+  }
+  
+  values_rv$cart$Disc_Pct[edited_row_idx] <- pct
+  values_rv$cart$Quantity[edited_row_idx] <- qty
+  values_rv$cart$Disc_Amt[edited_row_idx] <- amt
+  values_rv$cart$Final_Total[edited_row_idx] <- gross - amt
 }

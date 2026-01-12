@@ -186,18 +186,26 @@ process_discounts_data <- function(raw_discounts_data) {
   # raw_discounts_data(dataframe) - The raw discounts data to be processed
   
   processed_discounts <- raw_discounts_data %>%
-    setNames(c("Supplier", "Label", "Amount", "End_Date")) %>%
+    select(1, 2, 3, 4, 5) %>%
+    setNames(c("Supplier", "Label", "Amount", "End_Date", "Type")) %>%
     mutate(
       Supplier = as.character(Supplier),
       Label = as.character(Label),
       Amount = as.numeric(Amount),
-      End_Date = as.Date(End_Date)
+      End_Date = as.Date(End_Date),
+      Type = as.character(tolower(Type))
     ) %>%
+    filter(!is.na(Type)) %>%
     filter(!is.na(Amount)) %>%
+    filter(Amount > 0) %>%
     mutate(End_Date = replace_na(End_Date, Sys.Date())) %>%
     filter(End_Date >= Sys.Date()) %>%
-    mutate(Display_Text = paste(Supplier, Label, Amount, sep = " | ")) %>%
-    select(-End_Date)
-  
+    select(-End_Date) %>%
+    mutate(Formatted_Amount = ifelse(Type == "percentage", 
+                                     paste0(Amount * 100, "%"),
+                                     paste0("$", Amount))) %>%
+    mutate(Display_Text = paste(Supplier, Label, Formatted_Amount, sep = " | ")) %>%
+    select(-Formatted_Amount)
+    
   return(processed_discounts)
 }

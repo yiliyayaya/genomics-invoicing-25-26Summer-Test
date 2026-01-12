@@ -31,6 +31,7 @@ main_server_logic <- function(input, output, session, values) {
       showNotification("Data loaded successfully!", type = "message")
     }, error = function(e) {
       showNotification(paste("Error loading file:", e$message), type = "error")
+      print(e)
     })
   })
   
