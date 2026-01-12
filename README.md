@@ -124,7 +124,7 @@ The code is currently setup such that the user would input a .xlsx master spread
 
 #### Code Structure Diagram
 ![Modules structure diagram](assets/module-diagram.png)
-######This diagram is up to date as of 12/1/2026. Please review main repository structure to confirm.
+This diagram is up to date as of 12/1/2026. Please review main repository structure to confirm.
 
 #### Detailed Variable descriptions
 - `values (reactiveValues)` - A list of reactive values that stores all data which relies on user inputs or data processed from the master spreadsheet. It is declared in *TestApp.R* .
