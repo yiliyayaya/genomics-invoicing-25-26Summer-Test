@@ -69,17 +69,15 @@ You generally only need **R** and **RStudio** installed. The application handles
 
 ## 3. Usage
 
-1. **Upload Master Sheet**
-   **Crucial Step**: The app requires the "Master Spreadsheet" (.xlsx) to function. You can download the latest template directly from the app's sidebar.
+1. **Upload Master Sheet (REQUIRED)** – The app requires the "Master Spreadsheet" (.xlsx) to function. You can download the latest template directly from the app's sidebar.
 
-2. **Select Platform & Items**
-   Filter by platform and add consumables to your quote. Selecting a platform automatically redirects you to the item page.
+2. **Select Application & Protocol** – Select application and protocol to filter items and services to compatible results. Selecting a protocol automatically redirects you to the item page.
 
-3. **Select Services**
-   Add processing services (e.g., Library Preparation). You can filter these by group.
+3. **Select Items** – Add items and consumables to your quote. Items can be filtered by brand and/or category.
 
-4. **Configure & Export**
-   Review the "Final Quote" tab. Set the Project Type (Internal/External) to update prices via multipliers. You can adjust quantities, apply custom discounts (percentage or value), or supplier-specific discounts.
+4. **Select Services** – Add processing services (e.g., Library Preparation). Services can be filtered by group.
+
+5. **Configure & Export** – Review the "Final Quote" tab. Set the Project Type (Internal/External) to update prices via multipliers. You can adjust quantities, apply custom discounts (percentage or value), or supplier-specific discounts.
 
 ---
 
@@ -203,7 +201,7 @@ The new version is a comprehensive upgrade designed to match the **Genomics Team
 
 #### Key Workflow Upgrades
 
-1. **Platform Filtering**: Allows handling of much larger spreadsheets by filtering by platform first.
+1. **Application + Protocol Filtering**: Allows handling of much larger spreadsheets by filtering by application and protocol first.
 2. **Granular Selection**: Step-by-step selection for Items (filter by Protocol/Category) and Services (filter by Group).
 3. **Advanced Quote Editing**: In the final step, users can remove items, change quantities, and apply bulk or specific discounts.
 4. **Logic Shift**: Spreadsheet logic has been removed. The Excel file is now strictly for **Data Storage**, while all calculations are handled by the **App Code** to reduce human error.
