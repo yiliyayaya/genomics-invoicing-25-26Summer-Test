@@ -1,3 +1,7 @@
+QUANTITY_COL_IDX <- 5
+DISC_PCT_COL_IDX <- 6
+DISC_AMT_COL_IDX <- 7
+
 create_quote_datatable <- function(input, cart) {
   # Function that takes user inputs and creates datatable with selected values.
   #
@@ -11,6 +15,7 @@ create_quote_datatable <- function(input, cart) {
     select(Product_Code, Name, Description, Type, Unit_Price, Quantity, Disc_Pct, Disc_Amt, Final_Total) %>%
     as.data.frame() 
   
+  # Structure the quote datatable
   quote_dt <- datatable(display_df,
             selection = "multiple",
             editable = list(target = "cell", disable = list(columns = c(0, 1, 2, 3, 4, 8))),
@@ -20,11 +25,9 @@ create_quote_datatable <- function(input, cart) {
               scrollX = TRUE 
             ),
             rownames = FALSE,
-            colnames = c("Code", "Name", "Description", "Type", "Unit Price", "Quantity", "Discount %", "Discount $", "Total"))
-  
-  quote_dt <- quote_dt %>% 
-    formatCurrency(c("Unit_Price", "Disc_Amt", "Final_Total")) %>%
-    formatRound("Disc_Pct", 2)
+            colnames = c("Code", "Name", "Description", "Type", "Unit Price", "Quantity", "Discount %", "Discount $", "Total"))%>% 
+            formatCurrency(c("Unit_Price", "Disc_Amt", "Final_Total")) %>%
+            formatRound("Disc_Pct", 2)
 
   return(quote_dt)  
 }
@@ -99,6 +102,7 @@ apply_supplier_discount <- function(input, values_rv) {
     return()
   }
   
+  # Calculate new values accordingly
   discount_data <- values_rv$data$supplier_discount %>% filter(Display_Text == input$supplier_discount_select)
   for (row_idx in input$table_final_quote_rows_selected) {
     if(discount_data$Type == "percentage") {
@@ -126,6 +130,7 @@ recalculate_cart <- function(input, values_rv) {
   mult_item <- values_rv$data$logic_item[[rate_type_item]]
   mult_proc <- values_rv$data$logic_proc[[ptype]]
   
+  # Default multiplier is 1
   if(is.null(mult_proc)) mult_proc <- 1 
   
   values_rv$cart <- values_rv$cart %>%
@@ -155,13 +160,13 @@ update_quote_table <- function(table_edits, values_rv) {
   col_idx <- table_edits$col
   new_val <- as.numeric(table_edits$value)
   
-  if (col_idx == 5) {
+  if (col_idx == QUANTITY_COL_IDX) {
     # Edit Quantity
     edit_table(values_rv, row_idx, new_qty = new_val)
-  } else if (col_idx == 6) { 
+  } else if (col_idx == DISC_PCT_COL_IDX) { 
     # Edit Discount %
     edit_table(values_rv, row_idx, new_disc_pct = new_val)
-  } else if (col_idx == 7) {
+  } else if (col_idx == DISC_AMT_COL_IDX) {
     # Edit Discount $
     edit_table(values_rv, row_idx, new_disc_amt = new_val)
   }
@@ -183,6 +188,7 @@ edit_table <- function(values_rv, edited_row_idx, new_qty=NULL, new_disc_pct=NUL
   pct <- current_row$Disc_Pct
   amt <- current_row$Disc_Amt
   
+  # Check for input type
   if(!is.null(new_qty)) {
     req(new_qty >= 0)
     qty <- new_qty
@@ -194,12 +200,18 @@ edit_table <- function(values_rv, edited_row_idx, new_qty=NULL, new_disc_pct=NUL
     amt <- new_disc_amt
   }
   
+  # Calculate gross price and new % or $ discount
   gross <- price * qty
-  
   if(!is.null(new_disc_amt)) {
     pct <- if (gross > 0) (amt/gross) * 100 else 0
   } else {
     amt <- gross * (pct / 100)
+  }
+  
+  # Prevent negative values
+  if (gross - amt < 0) {
+    pct <- 100
+    amt <- gross
   }
   
   values_rv$cart$Disc_Pct[edited_row_idx] <- pct
