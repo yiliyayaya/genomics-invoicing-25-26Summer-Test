@@ -2,7 +2,7 @@
 
 👋 **Welcome to the team!**
 
-This is a specialized R Shiny application designed to process genomics pricing logic and generate professional quotes. This application is driven by a standardized Master Excel Spreadsheet (version: v0.6).
+This is a specialized R Shiny application designed to process genomics pricing logic and generate professional quotes. This application is driven by a standardized Master Excel Spreadsheet **(version: v0.6)**.
 
 This comprehensive README is designed to help newcomers gain a complete understanding of the project **within approximately 6 hours**, enabling you to begin contributing effectively from day one.
 
