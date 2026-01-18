@@ -28,9 +28,9 @@ main_output_logic <- function(input, output, cart_data) {
   
   # --- Handler: Template Download ---
   output$dl_template <- downloadHandler(
-    filename = "master_spreadsheet_25_26_summer.xlsx",
+    filename = "master_spreadsheet.xlsx",
     content = function(file) {
-      file.copy("master_spreadsheet_25_26_summer.xlsx", file)
+      file.copy("master_spreadsheet.xlsx", file)
     }
   )
   
