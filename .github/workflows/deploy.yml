@@ -26,5 +26,6 @@ jobs:
           TOKEN: ${{ secrets.SHINYAPPS_TOKEN }}
           SECRET: ${{ secrets.SHINYAPPS_SECRET }}
         run: |
+          Rscript -e "message('DEBUG CHECK: My Account Name is [', Sys.getenv('NAME'), ']')"
           Rscript -e "rsconnect::setAccountInfo(name=Sys.getenv('NAME'), token=Sys.getenv('TOKEN'), secret=Sys.getenv('SECRET'))"
           Rscript -e "rsconnect::deployApp(appName='genomics-invoicing-app')"
