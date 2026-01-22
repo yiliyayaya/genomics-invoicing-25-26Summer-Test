@@ -39,4 +39,4 @@ jobs:
           SECRET: ${{ secrets.SHINYAPPS_SECRET }}
         run: |
           Rscript -e "rsconnect::setAccountInfo(name=Sys.getenv('NAME'), token=Sys.getenv('TOKEN'), secret=Sys.getenv('SECRET'))"
-          Rscript -e "rsconnect::deployApp(appFiles = setdiff(list.files(recursive = TRUE), 'requirements'), appName='genomics-invoicing-app', appPrimaryDoc = 'TestApp.R')"
+          Rscript -e "rsconnect::deployApp(appName='genomics-invoicing-app', appPrimaryDoc = 'TestApp.R')"
