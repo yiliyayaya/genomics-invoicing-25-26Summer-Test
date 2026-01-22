@@ -19,9 +19,18 @@ jobs:
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
 
-      - name: Install dependencies
+      - name: Install System Dependencies
         run: |
-          Rscript -e 'install.packages(c("rsconnect", "shiny", "DT", "bslib"))'
+          sudo apt-get update
+          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev
+
+      - name: Install R Packages
+        run: |
+          Rscript -e 'install.packages(c("rsconnect", "shiny", "bslib", "DT", "dplyr", "readxl", "openxlsx", "tidyr", "rmarkdown", "shinyjs", "tinytex", "RColorBrewer"))'
+
+      - name: Install TinyTeX
+        run: |
+          Rscript -e 'tinytex::install_tinytex(force = TRUE)'
 
       - name: Authorize and Deploy
         env:
@@ -30,4 +39,4 @@ jobs:
           SECRET: ${{ secrets.SHINYAPPS_SECRET }}
         run: |
           Rscript -e "rsconnect::setAccountInfo(name=Sys.getenv('NAME'), token=Sys.getenv('TOKEN'), secret=Sys.getenv('SECRET'))"
-          Rscript -e "rsconnect::deployApp(appFiles = setdiff(list.files(), 'requirements'), appName='genomics-invoicing-app', appPrimaryDoc = 'TestApp.R')"
+          Rscript -e "rsconnect::deployApp(appFiles = setdiff(list.files(recursive = TRUE), 'requirements'), appName='genomics-invoicing-app', appPrimaryDoc = 'TestApp.R')"
