@@ -16,6 +16,9 @@ jobs:
         with:
           use-public-rspm: true
 
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+
       - name: Install dependencies
         run: |
           Rscript -e 'install.packages(c("rsconnect", "shiny", "DT", "bslib"))'
@@ -26,6 +29,5 @@ jobs:
           TOKEN: ${{ secrets.SHINYAPPS_TOKEN }}
           SECRET: ${{ secrets.SHINYAPPS_SECRET }}
         run: |
-          Rscript -e "message('DEBUG CHECK: My Account Name is [', Sys.getenv('NAME'), ']')"
           Rscript -e "rsconnect::setAccountInfo(name=Sys.getenv('NAME'), token=Sys.getenv('TOKEN'), secret=Sys.getenv('SECRET'))"
           Rscript -e "rsconnect::deployApp(appName='genomics-invoicing-app')"
