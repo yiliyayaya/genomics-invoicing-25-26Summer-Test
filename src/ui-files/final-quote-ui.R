@@ -6,17 +6,21 @@ structure_quote_page <- function() {
     value = "tab_quote",
     card(
       full_screen = TRUE, 
-      card_header("Review & Edit Quote"),
+      card_header(
+        div(class = "d-flex flex-column",
+            span("Review & Edit Quote", style = "font-weight: bold; margin-bottom: 10px;"),
+            div(class = "d-flex justify-content-between align-items-center",
+                div(actionButton("remove_row_btn", "Remove Selected Row", class = "btn-danger btn-sm", icon = icon("trash"))),
+                div(class = "d-flex gap-2",
+                    downloadButton("dl_excel", "Download .xlsx", class = "btn-secondary btn-sm"),
+                    downloadButton("dl_pdf", "Download PDF Invoice", class = "btn-primary btn-sm")
+                )
+            )
+        )
+      ),
       card_body(
         conditionalPanel(
           condition = "input.project_type !== ''",
-          
-          div(class = "d-flex justify-content-between align-items-center",
-              div(actionButton("remove_row_btn", "Remove Selected Row", class = "btn-danger btn-sm", icon = icon("trash"))),
-              div(downloadButton("dl_excel", "Download .xlsx", class = "btn-secondary btn-sm"),
-                  downloadButton("dl_pdf", "Download PDF Invoice", class = "btn-primary btn-sm"))
-          ),
-          hr(),
           DTOutput("table_final_quote") 
         ),
         
