@@ -196,11 +196,7 @@ The code is currently setup such that the user would input a .xlsx master spread
 ```
 
 #### Modules Structure Diagram
-The following diagram outlines the hierarchy of modules and what each is used for. A module structured as 
-```r
-module A --> module B
-```
-indicates that a function defined in module B is called in module A.
+The following diagram outlines the hierarchy of modules and what each is used for. A module structured as `module A ---> module B` indicates that a function defined in module B is called in module A.
 
 ![Modules structure diagram](assets/module-diagram-v2.jpeg)
 
