@@ -41,13 +41,20 @@ If you are new here, follow these steps to get the app running on your local mac
 
 ### 2.1 Prerequisites
 
-You generally only need **R** and **RStudio** installed. The application handles the rest.
+For MacOS or Linux users, you generally only need **R** and **RStudio** installed. The application handles the rest.
 
-* [**Download R**](https://cran.r-project.org/)
+For Windows users, you will need to setup a Linux environment to work on this repository. In past intakes, most interns have used WSL with a Debian distribution of Linux, however you may choose to use your own Linux distro if you can get it working.
+
+**NOTE:** WEHI's internal Linux server runs **R version 4.4.1 (2024-06-14) -- "Race for Your Life"**. Please ensure that your R version matches this to ensure stability in deployment.
+
+**R Installation Links**
+* [**Intel-based MacOS**](https://cran.r-project.org/bin/macosx/big-sur-x86_64/base/)
+* [**ARM-based MacOS**](https://cran.r-project.org/bin/macosx/big-sur-arm64/base/)
 * [**Download RStudio**](https://posit.co/download/rstudio-desktop/)
 
 ### 2.2 Installation
 
+**MacOS Installation**
 1. **Clone or Download**
    ```bash
    git clone [https://github.com/yiliyayaya/genomics-invoicing-25-26Summer-Test.git](https://github.com/yiliyayaya/genomics-invoicing-25-26Summer-Test.git)
@@ -64,6 +71,72 @@ You generally only need **R** and **RStudio** installed. The application handles
    **Package Dependencies (Reference Only)**
    While the app installs these automatically, here is the list for manual deployment reference:
    `shiny`, `bslib`, `DT`, `dplyr`, `readxl`, `openxlsx`, `tidyr`, `rmarkdown`, `shinyjs`, `tinytex`, `RColorBrewer`
+
+**Windows Installation**
+1. **Setup Windows Subsystem for Linux (WSL)**
+   Setup WSL on your machine with your selected distribution. We will be using Debian for this setup section. Remember your **WSL username and password**, you will need it later. [**WSL Installation Guide**](https://learn.microsoft.com/en-us/windows/wsl/install)
+
+2. **Install R**
+   To ensure we are using the same R version as the server, we would need to install an older version of R: 4.4.1. Run this command to start a text file to tell your system where to find this version:
+   ```bash
+   sudo nano /etc/apt/sources.list.d/cran-r.list
+   ```
+   In the window that pops up, put in the following command. Note: this is for Debian Bookworm ONLY!
+   ```bash
+   deb http://cloud.r-project.org/bin/linux/debian bookworm-cran40/
+   ```
+   Now type **crtl-O** to write the line and **crtl-X** to exit.
+
+   Next, run this to get identification for the download:
+   ```bash
+   gpg --keyserver keyserver.ubuntu.com \
+       --recv-key '95C0FAF38DB3CCAD0C080A7BDC78B2DDEABC47B7'
+   ```
+   And this command to add the identificatino to your system's recognised id:
+   ```bash
+   gpg --armor --export '95C0FAF38DB3CCAD0C080A7BDC78B2DDEABC47B7' | \
+       sudo tee /etc/apt/trusted.gpg.d/cran_debian_key.asc
+   ```
+   Now you are set with the repository. Check the validity of the repository with:
+   ```bash
+   sudo apt-get update
+   apt-cache policy r-base
+   ```
+   If you see "4.4.1-1~bookwormcran.0" in "candidates", you are all set.
+   Now install R 4.4.1 with:
+   ```bash
+   sudo apt-get install r-base=4.4.1-1~bookwormcran.0
+   ```
+   Finally check installation with:
+   ```bash
+   R --version
+   ```   
+
+3. **Install R-Studio Server**
+   Now that R is installed on your Linux subsystem, go to the RStudio download site linked above and download RStudio. Follow the instructions in the installer until it is complete.
+
+   **IMPORTANT: Select your distro and version correctly.** 
+
+4. **Launch development space**
+   Now that everything has been installed, we can move to launching the app.
+   
+   Run this command in your bash shell
+   ```bash
+   sudo rstudio-server start
+   ```
+   if you see some text starting with "TTY detected.", you are good to go. 
+   Now open your browser and type in:
+   ```bash
+   http://localhost:8787
+   ```
+   you should see a window asking for a user name and password. **Use your WSL username and password**. Then you can see your development environment in your browser successfully deployed.
+
+   To run the app, find and open the TestApp.R file then select "Run App" or run:
+   ```r
+   shiny::runApp()
+   ```
+
+   **NOTE: Step 4 is how WSL-based interns will continue accessing and contributing to the codebase throughout the program. Remember how to do this.**
 
 ---
 
