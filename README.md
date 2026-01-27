@@ -195,9 +195,16 @@ The code is currently setup such that the user would input a .xlsx master spread
         └── final-quote-ui.R                # UI structure for quote summary and discounts (Page 4) 
 ```
 
-#### Code Structure Diagram
-![Modules structure diagram](assets/module-diagram.png)
-This diagram is up to date as of 12/1/2026. Please review main repository structure to confirm.
+#### Modules Structure Diagram
+The following diagram outlines the hierarchy of modules and what each is used for. A module structured as 
+```r
+module A --> module B
+```
+indicates that a function defined in module B is called in module A.
+
+![Modules structure diagram](assets/module-diagram-v2.jpeg)
+
+This diagram is up to date as of 27/1/2026. Please review main repository structure to confirm.
 
 #### Detailed Variable descriptions
 - `values (reactiveValues)` - A list of reactive values that stores all data which relies on user inputs or data processed from the master spreadsheet. It is declared in *TestApp.R* .
@@ -222,7 +229,13 @@ This diagram is up to date as of 12/1/2026. Please review main repository struct
 
 *src/ui.R* - This file structures the app’s UI consisting of sidebar features and calling individual functions to generate the `nav_panel`(main section) for each page. All files in *src/ui-files* have the same structure, 1 function to generate the main content panel for that page and another to generate the the relevant sidebar content. 
 
-### 4.3 Code Guidelines
+### 4.3 Architecture Diagram
+The following diagram is a very simplified version of how the R-Shiny application interacts with users and the internal server system.
+![Modules structure diagram](assets/architecture-diagram-v1.jpeg)
+
+This diagram is up to date as of 27/1/2026. Please review main repository code to confirm.
+
+### 4.4 Code Guidelines
 Here, we will outline the expectation for how code should be written throughout this program. It is important that the guidelines are followed to improve maintainability and readability of the program.
 
 #### Naming
