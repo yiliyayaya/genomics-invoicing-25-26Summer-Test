@@ -9,7 +9,7 @@ create_quote_datatable <- function(input, cart) {
   # input(list) - List of input values from Shiny server function
   # cart(dataframe) - Dataframe of selcted items and services
   
-  req(input$project_type, input$services_surcharge_type)
+  req(input$item_surcharge_type, input$services_surcharge_type)
   
   display_df <- cart %>% 
     select(Product_Code, Name, Description, Type, Unit_Price, Quantity, Disc_Pct, Disc_Amt, Final_Total) %>%
