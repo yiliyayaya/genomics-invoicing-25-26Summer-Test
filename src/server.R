@@ -121,7 +121,8 @@ main_server_logic <- function(input, output, session, values) {
   })
   
   # --- Observer: Recalculate Cart when Project Type Changes ---
-  observeEvent(input$project_type, { recalculate_cart(input, values) })
+  observeEvent(input$item_surcharge_type, { recalculate_cart(input, values) })
+  observeEvent(input$services_surcharge_type, { recalculate_cart(input, values) })
   
   # --- Output: Final Quote Table ---
   output$table_final_quote <- renderDT({ create_quote_datatable(input, values$cart) }, server = FALSE) 
@@ -146,7 +147,9 @@ main_server_logic <- function(input, output, session, values) {
   
   # --- Output: Grand Total Calculation ---
   output$grand_total_display <- renderText({
-    if(nrow(values$cart) == 0 || input$project_type == "") return("Total (Per Batch): $0.00")
+    if(nrow(values$cart) == 0 || input$item_surcharge_type == "" || input$services_surcharge_type == "") { 
+      return("Total (Per Batch): $0.00")
+    }
     total <- sum(values$cart$Final_Total, na.rm = TRUE)
     batches <- input$meta_batches
     paste0("Total (Per Batch): $", formatC(total, format="f", digits=2, big.mark=","), 

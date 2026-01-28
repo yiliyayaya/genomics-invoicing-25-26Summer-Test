@@ -46,8 +46,7 @@ create_mult_ref_table <- function(multiplier_data, item_multiplier, service_mult
   
   proc_mult <- round(multiplier_data$logic_proc[[service_multiplier]], 3)
   item_mult <- round(multiplier_data$logic_item[[item_multiplier]], 3)
-  print(multiplier_data$logic_proc)
-  print(multiplier_data$logic_item)
+
   return(data.frame(
     Category = c("Items (Consumables)", "Processing Services"),
     Multiplier = c(paste0("x", item_mult), paste0("x", proc_mult))
@@ -132,9 +131,6 @@ recalculate_cart <- function(input, values_rv) {
   proc_type <- input$services_surcharge_type
   mult_item <- values_rv$data$logic_item[[item_type]]
   mult_proc <- values_rv$data$logic_proc[[proc_type]]
-  
-  # Default multiplier is 1
-  if(is.null(mult_proc)) mult_proc <- 1 
   
   values_rv$cart <- values_rv$cart %>%
     mutate(
