@@ -9,7 +9,7 @@ create_quote_datatable <- function(input, cart) {
   # input(list) - List of input values from Shiny server function
   # cart(dataframe) - Dataframe of selcted items and services
   
-  req(input$project_type)
+  req(input$project_type, input$services_surcharge_type)
   
   display_df <- cart %>% 
     select(Product_Code, Name, Description, Type, Unit_Price, Quantity, Disc_Pct, Disc_Amt, Final_Total) %>%
@@ -32,20 +32,22 @@ create_quote_datatable <- function(input, cart) {
   return(quote_dt)  
 }
 
-create_mult_ref_table <- function(multiplier_data, project_type) {
+create_mult_ref_table <- function(multiplier_data, item_multiplier, service_multiplier) {
   # Function that takes creates surcharge multiplier reference table.
   #
   # Arguments:
   # multiplier_data(dataframe) - Dataframe of multiplier reference data
-  # project_type(string) - Code for type of project surcharge selected
+  # project_type(string) - Code for the type of surcharge/multipler for items/consumables
+  # service_multiplier(string) - Code for the type of surcharge/multipler for processing/service charges
   
-  req(multiplier_data, project_type)
-  if(project_type == "" || is.na(project_type)) { return(NULL) }
+  req(multiplier_data, item_multiplier, service_multiplier)
+  if(item_multiplier == "" || is.na(item_multiplier)) { return(NULL) }
+  if(service_multiplier == "" || is.na(service_multiplier)) { return(NULL) }
   
-  proc_mult <- round(multiplier_data$logic_proc[[project_type]], 3)
-  rate_type <- if(project_type == "Internal") "Internal" else "External"
-  item_mult <- multiplier_data$logic_item[[rate_type]]
-  
+  proc_mult <- round(multiplier_data$logic_proc[[service_multiplier]], 3)
+  item_mult <- round(multiplier_data$logic_item[[item_multiplier]], 3)
+  print(multiplier_data$logic_proc)
+  print(multiplier_data$logic_item)
   return(data.frame(
     Category = c("Items (Consumables)", "Processing Services"),
     Multiplier = c(paste0("x", item_mult), paste0("x", proc_mult))
@@ -123,12 +125,13 @@ recalculate_cart <- function(input, values_rv) {
   # values_rv(reactiveValues) - List of reactiveValues used in server
   
   req(values_rv$data, nrow(values_rv$cart) > 0)
-  if(input$project_type == "") return()
+  if(input$item_surcharge_type == "") return()
+  if(input$services_surcharge_type == "") return()
   
-  ptype <- input$project_type
-  rate_type_item <- if(ptype == "Internal") "Internal" else "External"
-  mult_item <- values_rv$data$logic_item[[rate_type_item]]
-  mult_proc <- values_rv$data$logic_proc[[ptype]]
+  item_type <- input$item_surcharge_type
+  proc_type <- input$services_surcharge_type
+  mult_item <- values_rv$data$logic_item[[item_type]]
+  mult_proc <- values_rv$data$logic_proc[[proc_type]]
   
   # Default multiplier is 1
   if(is.null(mult_proc)) mult_proc <- 1 
