@@ -26,11 +26,22 @@ jobs:
 
       - name: Install R Packages
         run: |
-          Rscript -e 'install.packages(c("rsconnect", "shiny", "bslib", "DT", "dplyr", "readxl", "openxlsx", "tidyr", "rmarkdown", "shinyjs", "tinytex", "RColorBrewer"))'
+          # Install 'remotes' first to enable specific version installation
+          Rscript -e 'install.packages("remotes")'
+          
+          # Force install specific versions of bslib (0.9.0) and shiny (1.11.1) to match local RStudio environment
+          # This ensures UI elements like buttons align correctly (fixing the left-alignment bug)
+          Rscript -e 'remotes::install_version("bslib", version = "0.9.0", upgrade = "never", repos = "https://cloud.r-project.org")'
+          Rscript -e 'remotes::install_version("shiny", version = "1.11.1", upgrade = "never", repos = "https://cloud.r-project.org")'
+          
+          # Install remaining dependencies (excluding bslib and shiny as they are already installed above)
+          Rscript -e 'install.packages(c("rsconnect", "DT", "dplyr", "readxl", "openxlsx", "tidyr", "rmarkdown", "shinyjs", "tinytex", "RColorBrewer"))'
 
       - name: Install TinyTeX
         run: |
+          # Install TinyTeX only if it is missing to speed up deployment
           Rscript -e 'if(!tinytex::is_tinytex()) tinytex::install_tinytex()'
+          # Install necessary LaTeX packages for the PDF invoice layout
           Rscript -e 'tinytex::tlmgr_install(c("booktabs", "colortbl", "xcolor", "float", "graphicx", "tikz", "helvet", "amsmath", "geometry", "fancyvrb", "etoolbox", "ragged2e"))'
 
       - name: Authorize and Deploy
@@ -40,4 +51,5 @@ jobs:
           SECRET: ${{ secrets.SHINYAPPS_SECRET }}
         run: |
           Rscript -e "rsconnect::setAccountInfo(name=Sys.getenv('NAME'), token=Sys.getenv('TOKEN'), secret=Sys.getenv('SECRET'))"
+          # Deploy the application using TestApp.R as the primary file
           Rscript -e "rsconnect::deployApp(appName='genomics-invoicing-app', appPrimaryDoc = 'TestApp.R', forceUpdate = TRUE)"
