@@ -7,28 +7,31 @@ create_services_datatable <- function(input, values) {
   # values(list) - List of Reactive Values used in server
   
   req(values$data)
-  df <- filter_services_data(input, values)
+  df_display <- filter_services_data(input, values)
+  surcharge_list <- names(values$data$logic_proc)
   
-  m_int <- values$data$logic_proc[["Internal"]]
-  m_col <- values$data$logic_proc[["Ext.Collaborative"]]
-  m_rsa <- values$data$logic_proc[["Ext.RSA"]]
-  m_com <- values$data$logic_proc[["Commercial"]]
+  for (i in surcharge_list) {
+    col_name <- i
+    col_mult <- values$data$logic_proc[[i]]
+    
+    df_display <- df_display %>%
+      mutate(!!col_name := Base_Price * col_mult)
+  }
   
-  df_display <- df %>% 
-    mutate(
-      P_Int = Base_Price * m_int,
-      P_Col = Base_Price * m_col,
-      P_RSA = Base_Price * m_rsa,
-      P_Com = Base_Price * m_com
-    ) %>%
-    select(Group, Service, Description, P_Int, P_Col, P_RSA, P_Com)
-  
+  df_display <- df_display %>%
+    select(-Base_Price)
+
   services_dt <- datatable(
     df_display,
-    selection = "multiple", options = list(pageLength = 10, scrollX = TRUE),
-    colnames = c("Group", "Service", "Description", "Internal", "Ext. Collab", "Ext. RSA", "Commercial")
+    selection = "multiple", 
+    options = list(pageLength = 10, scrollX = TRUE),
+    colnames = colnames(df_display)
   )
-  services_dt <- services_dt %>%  formatCurrency(c("P_Int", "P_Col", "P_RSA", "P_Com"))
+  
+  for (i in surcharge_list) {
+    col_name <- i
+    services_dt <- services_dt %>% formatCurrency(c(col_name))
+  }
 
   return(services_dt)  
 }

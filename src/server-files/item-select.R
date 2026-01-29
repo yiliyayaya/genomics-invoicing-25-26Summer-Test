@@ -7,25 +7,32 @@ create_items_datatable <- function(input, values) {
   # values(list) - List of Reactive Values used in server
   
   req(values$data$items, values$application_select, values$protocol_select)
-  items_df <- filter_items_data(input, values)
-
-  # Calculate Internal/External Surcharge prices
-  internal_mult <- values$data$logic_item[["Internal"]]
-  external_mult <- values$data$logic_item[["External"]]
-  df_display <- items_df %>% 
-    mutate(
-      Price_Internal = ifelse(Is_Constant, Base_Cost + Add_Cost, (Base_Cost * internal_mult) + Add_Cost),
-      Price_External = ifelse(Is_Constant, Base_Cost + Add_Cost, (Base_Cost * external_mult) + Add_Cost)
-    ) %>%
-    select(Product_Code, Brand, Item, Description, Price_Internal, Price_External)
+  df_display <- filter_items_data(input, values)
+  surcharge_list <- names(values$data$logic_item)
+  
+  for (i in surcharge_list) {
+    col_name <- i
+    col_mult <- values$data$logic_item[[i]]
+    
+    df_display <- df_display %>%
+      mutate(!!col_name := ifelse(Is_Constant, Base_Cost + Add_Cost, (Base_Cost * col_mult) + Add_Cost))
+  }
+  
+  df_display <- df_display %>%
+    select(-Base_Cost, -Add_Cost, -Is_Constant, -Category) %>%
+    rename(Code = Product_Code)
 
   # Generate display datatable
   items_datatable <- datatable(
     df_display,
     selection = "multiple",
     options = list(pageLength = 10),
-    colnames = c("Code", "Brand", "Item", "Description", "Internal Price", "External Price"))
-  items_datatable <- items_datatable %>%  formatCurrency(c("Price_Internal", "Price_External"))
+    colnames = colnames(df_display))
+  
+  for (i in surcharge_list) {
+    col_name <- i
+    items_datatable <- items_datatable %>% formatCurrency(c(col_name))
+  }
   
   return(items_datatable)
 }

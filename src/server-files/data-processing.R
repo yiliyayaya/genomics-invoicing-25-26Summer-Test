@@ -72,23 +72,24 @@ process_services_surcharges <- function(raw_surcharges_data) {
   
   # Process raw data
   df_config <- raw_surcharges_data %>%
-    select(1, 3) %>% 
-    setNames(c("Type", "Amount")) %>%
+    setNames(c("Type", "Label", "Amount")) %>%
     mutate(Amount = as.numeric(Amount))
   proc_rows <- df_config %>% 
     filter(Type == "PROCESSING") %>%
     mutate(Cumulative = cumprod(Amount)) # Multipliers stack on top of each other
   
-  # Helper function to safely retrieve cumulative value by row index
-  get_proc_val <- function(idx) {
-    if(nrow(proc_rows) >= idx) return(proc_rows$Cumulative[idx]) else return(1)
+  proc_surcharge_list <- list()
+  
+  for(i in 1:nrow(proc_rows)) {
+    row_data <- proc_rows[i, ]
+    
+    cumulative_amt <- row_data$Cumulative
+    surcharge_label <- row_data$Label
+    
+    proc_surcharge_list[[surcharge_label]] <- cumulative_amt
   }
   
-  return(list("Internal" = get_proc_val(1), # Corresponds to Row 1
-    "Ext.Collaborative" = get_proc_val(2), # Corresponds to Row 2
-    "Ext.RSA"            = get_proc_val(3), # Corresponds to Row 3
-    "Commercial"        = get_proc_val(4)  # Corresponds to Row 4
-  ))
+  return(proc_surcharge_list)
 }
 
 process_items_data <- function(raw_items_data) {
@@ -132,8 +133,8 @@ get_item_application_protocol <- function(raw_items_data) {
     mutate(Brand = as.character(Brand),
            Item = as.character(Item),
            Application_String = as.character(replace_na(as.character(Application_String), "ALL_APPLICATIONS")),
-           Protocol_String = as.character(replace_na(as.character(Protocol_String), "ALL_PROTOCOLS")),
            Application = strsplit(Application_String, split = ";", fixed = TRUE),
+           Protocol_String = as.character(replace_na(as.character(Protocol_String), "ALL_PROTOCOLS")),
            Protocol = strsplit(Protocol_String, split = ";", fixed = TRUE)) %>%
     select(-Application_String) %>%
     select(-Protocol_String)

@@ -48,8 +48,8 @@ quote_config_panel <- function() {
     condition = "input.nav_tabs == 'tab_quote'",
     h5("Quote Configuration"),
     
-    selectInput("project_type", "2. Project Type", 
-                choices = c("", "Internal", "Ext.Collaborative", "Ext.RSA", "Commercial")),
+    selectInput("item_surcharge_type", "Items Surcharge", choices = c("")),
+    selectInput("services_surcharge_type", "Services Surcharge", choices = c("")),
     
     conditionalPanel(
       condition = "input.project_type !== ''",

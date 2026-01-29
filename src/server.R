@@ -89,7 +89,9 @@ main_server_logic <- function(input, output, session, values) {
   })
   
   # --- Output: Multiplier Table ---
-  output$multiplier_table <- renderTable({ create_mult_ref_table(values$data, input$project_type) }, 
+  output$multiplier_table <- renderTable({ create_mult_ref_table(values$data, 
+                                                                 input$item_surcharge_type, 
+                                                                 input$services_surcharge_type) }, 
                                          striped = TRUE, hover = TRUE, bordered = TRUE, width = "100%")
   
   # --- Logic: Calculate Item Prices (Tab 1 Display) ---
@@ -119,7 +121,8 @@ main_server_logic <- function(input, output, session, values) {
   })
   
   # --- Observer: Recalculate Cart when Project Type Changes ---
-  observeEvent(input$project_type, { recalculate_cart(input, values) })
+  observeEvent(input$item_surcharge_type, { recalculate_cart(input, values) })
+  observeEvent(input$services_surcharge_type, { recalculate_cart(input, values) })
   
   # --- Output: Final Quote Table ---
   output$table_final_quote <- renderDT({ create_quote_datatable(input, values$cart) }, server = FALSE) 
@@ -144,7 +147,9 @@ main_server_logic <- function(input, output, session, values) {
   
   # --- Output: Grand Total Calculation ---
   output$grand_total_display <- renderText({
-    if(nrow(values$cart) == 0 || input$project_type == "") return("Total (Per Batch): $0.00")
+    if(nrow(values$cart) == 0 || input$item_surcharge_type == "" || input$services_surcharge_type == "") { 
+      return("Total (Per Batch): $0.00")
+    }
     total <- sum(values$cart$Final_Total, na.rm = TRUE)
     batches <- input$meta_batches
     paste0("Total (Per Batch): $", formatC(total, format="f", digits=2, big.mark=","), 
@@ -159,9 +164,13 @@ populate_select_lists <- function(session, data_list) {
   cats_sorted <- sort(unique(data_list$items$Category))
   groups_sorted <- sort(unique(data_list$services$Group))
   supplier_discount_labels <- sort(unique(data_list$supplier_discount$Display_Text))
+  items_surcharge_labels <- unique(names(data_list$logic_item)) 
+  service_surcharge_labels <- unique(names(data_list$logic_proc)) # Preserve order for cumulative surcharge
   
   updateSelectInput(session, "filter_item_brand", choices = c("All", item_brand_sorted))
   updateSelectInput(session, "filter_category", choices = c("All", cats_sorted))
   updateSelectInput(session, "filter_group", choices = c("All", groups_sorted))
   updateSelectInput(session, "supplier_discount_select", choices = c("", supplier_discount_labels))
+  updateSelectInput(session, "item_surcharge_type", choices = c("", items_surcharge_labels))
+  updateSelectInput(session, "services_surcharge_type", choices = c("", service_surcharge_labels))
 }
