@@ -30,8 +30,8 @@ jobs:
 
       - name: Install TinyTeX
         run: |
-          Rscript -e 'tinytex::install_tinytex(force = TRUE)'
-          Rscript -e 'tinytex::tlmgr_install(c("booktabs", "colortbl", "xcolor", "float", "graphicx", "tikz", "fontspec", "amsmath", "oberdiek", "fancyvrb", "etoolbox"))'
+          Rscript -e 'if(!tinytex::is_tinytex()) tinytex::install_tinytex()'
+          Rscript -e 'tinytex::tlmgr_install(c("booktabs", "colortbl", "xcolor", "float", "graphicx", "tikz", "helvet", "amsmath", "geometry", "fancyvrb", "etoolbox", "ragged2e"))'
 
       - name: Authorize and Deploy
         env:
