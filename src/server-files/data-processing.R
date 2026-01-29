@@ -133,8 +133,8 @@ get_item_application_protocol <- function(raw_items_data) {
     mutate(Brand = as.character(Brand),
            Item = as.character(Item),
            Application_String = as.character(replace_na(as.character(Application_String), "ALL_APPLICATIONS")),
-           Protocol_String = as.character(replace_na(as.character(Protocol_String), "ALL_PROTOCOLS")),
            Application = strsplit(Application_String, split = ";", fixed = TRUE),
+           Protocol_String = as.character(replace_na(as.character(Protocol_String), "ALL_PROTOCOLS")),
            Protocol = strsplit(Protocol_String, split = ";", fixed = TRUE)) %>%
     select(-Application_String) %>%
     select(-Protocol_String)
