@@ -1,13 +1,19 @@
-# Constants
-# Metadata Indices
+# ==============================================================================
+# MODULE: OUTPUT LOGIC
+# DESCRIPTION: Manages file generation and download handlers for Excel and PDF.
+# ==============================================================================
+
+# --- Constants: Metadata Indices ---
 TITLE_IDX <- 1
 DATE_IDX <- 2
 QUOTE_ID_IDX <- 3
-# Column Indices
+
+# --- Constants: Column Indices ---
 ITEM_LABEL_COL <- 1
 FIRST_COL <- 1
-LAST_COL <- 7 # Updated to accommodate Discount % and Discount $ columns
-# Excel Row indices
+LAST_COL <- 7 # Includes Discount % and Discount $ columns
+
+# --- Constants: Excel Row Layout ---
 TITLE_SECTION <- 1
 DATE_SECTION <- 4
 QUOTEID_SECTION <- 5
@@ -16,17 +22,19 @@ PER_BATCH_HEADING <- 15
 MAIN_SECTION_HEADER <- 16
 
 main_output_logic <- function(input, output, cart_data) {
-  # Manages the core output logic for spreadsheet templates, Excel quotes, and PDF invoices.
+  # Core logic for handling spreadsheet templates, Excel quotes, and PDF invoices.
   #
-  # Arguments: 
-  # input(list) - List of input values from Shiny server function
-  # output(list) - List of output values from Shiny server function 
-  # cart_data(dataframe) - Dataframe containing selected items/charges from cart
+  # Arguments:
+  #   input      - List of input values from the Shiny server.
+  #   output     - List of output values from the Shiny server.
+  #   cart_data  - Dataframe containing the selected items/charges.
   
-  # --- Background Warm-up for PDF Engine ---
+  # --- PDF Engine Initialization ---
+  # Pre-warms the PDF rendering engine to reduce latency for the first user request.
   observe({ setup_pdf_engine(tempdir()) })
   
   # --- Handler: Template Download ---
+  # Allows users to download the original master spreadsheet template.
   output$dl_template <- downloadHandler(
     filename = "master_spreadsheet.xlsx",
     content = function(file) {
@@ -34,22 +42,26 @@ main_output_logic <- function(input, output, cart_data) {
     }
   )
   
-  # --- Handler: Excel Download ---
+  # --- Handler: Excel Quote Download ---
+  # Generates a formatted .xlsx quote based on the current cart and metadata.
   output$dl_excel <- downloadHandler(
     filename = function() { paste0(input$quote_id, "_Quote.xlsx") },
     content = function(file) {
+      # Aggregate metadata into a list for processing
       meta_data = list(
         title = input$meta_title,
         date = input$meta_date,
         quote_id = input$quote_id,
         project_id = input$meta_proj_id,
         project_type = input$project_type,
-        platform = input$platform,
+        platform = input$meta_platform,
         n_samples = input$meta_samples,
         n_batches = input$meta_batches,
         n_samples_per_batch = input$meta_samples_batch,
         n_aimed_cells_per_sample = input$meta_aimed_cells
       )
+      
+      # Define labels for the metadata section in Excel
       meta_labels <- c(
         "Title", "Date:", "Quote ID:", "Project ID:", "Project Title:", "Project type:",
         "Platform:", "Total # samples:", "# batches:", "# samples per batch:", "Aimed # cells per sample:"
@@ -59,7 +71,8 @@ main_output_logic <- function(input, output, cart_data) {
     }
   )
   
-  # --- Handler: PDF Download ---
+  # --- Handler: PDF Invoice Download ---
+  # Generates a professional PDF invoice using LaTeX.
   output$dl_pdf <- downloadHandler(
     filename = function() { paste0(input$quote_id, "_Invoice.pdf") },
     content = function(file) {
@@ -70,11 +83,8 @@ main_output_logic <- function(input, output, cart_data) {
 }
 
 setup_pdf_engine <- function(temp_path) {
-  # Pre-warms the PDF engine to reduce latency during the first real PDF generation.
-  #
-  # Arguments:
-  # temp_path(string) - The temporary directory used to temporarily store the PDF
-  
+  # Initializes the RMarkdown rendering engine in a temporary directory.
+  # This helps verify the environment is ready before a user attempts a download.
   try({
     temp_warmup <- file.path(temp_path, "warmup.Rmd")
     writeLines("---\noutput: pdf_document\n---\nInit", temp_warmup)
@@ -83,16 +93,11 @@ setup_pdf_engine <- function(temp_path) {
 }
 
 generate_excel_quote <- function(meta_data, meta_label, cart_data, file) {
-  # Constructs and formats the Excel workbook for project quotes.
-  #
-  # Arguments: 
-  # meta_data(list) - List of metadata values derived from input 
-  # meta_label(list) - List of metadata labels used for quote formatting
-  # cart_data(dataframe) - Dataframe containing selected items/charges from cart
-  # file(string) - The temporary file path for the output
+  # Constructs and formats the Excel workbook using the 'openxlsx' package.
   
   req(cart_data)
   
+  # --- Define Excel Styles ---
   style_header_title <- createStyle(fontSize = 14, fontColour = "#225EA8", textDecoration = "bold")
   style_italic <- createStyle(textDecoration = "italic")
   style_bold <- createStyle(textDecoration = "bold")
@@ -101,10 +106,12 @@ generate_excel_quote <- function(meta_data, meta_label, cart_data, file) {
   style_line_thin <- createStyle(border = "bottom", borderColour = "black", borderStyle = "thin")
   style_grand_total <- createStyle(fontSize = 12, textDecoration = "bold")
   
+  # Prepare data table for export
   df_table <- cart_data %>%
     mutate(Total_Amount_AUD = Unit_Price * Quantity) %>%
     select(Name, Unit_Price, Description, Quantity, Disc_Pct, Disc_Amt, Total_Amount_AUD)
   
+  # Calculate Totals
   raw_total_batch <- sum(df_table$Total_Amount_AUD, na.rm = TRUE)
   discount_total_batch <- sum(cart_data$Disc_Amt, na.rm = TRUE)
   net_total_batch <- raw_total_batch - discount_total_batch
@@ -113,26 +120,26 @@ generate_excel_quote <- function(meta_data, meta_label, cart_data, file) {
   project_total <- net_total_batch * batches
   batch_label <- ifelse(batches > 1, "batches", "batch")
   
+  # Initialize Workbook
   wb <- createWorkbook()
   addWorksheet(wb, "Invoice")
   showGridLines(wb, "Invoice", showGridLines = FALSE)
   
-  # Titles
+  # --- Write Metadata Section ---
   write_data_to_excel(wb, "Invoice", meta_data$title, start_row = TITLE_SECTION, start_col = FIRST_COL, text_style = style_header_title)
   write_data_to_excel(wb, "Invoice", "Project based cost estimate", start_row = TITLE_SECTION + 1, start_col = FIRST_COL, text_style = style_italic)
   
-  # Date and Quote ID
   write_data_to_excel(wb, "Invoice", paste(meta_label[[DATE_IDX]], meta_data[[DATE_IDX]]), start_row = DATE_SECTION, start_col = FIRST_COL, text_style = style_bold)
   write_data_to_excel(wb, "Invoice", paste(meta_label[[QUOTE_ID_IDX]], meta_data[[QUOTE_ID_IDX]]), start_row = QUOTEID_SECTION, start_col = FIRST_COL, text_style = style_bold)
   
-  # Metadata section
   for(i in 4:length(meta_data)) {
     write_data_to_excel(wb, "Invoice", paste(meta_label[[i]], meta_data[[i]]), start_row = METADATA_SECTION + (i-4), start_col = FIRST_COL, text_style = style_bold)
   }
   
-  # Main table section
+  # --- Write Main Data Table ---
   write_data_to_excel(wb, "Invoice", "Cost per batch", start_row = PER_BATCH_HEADING, start_col = FIRST_COL, text_style = createStyle(fontSize=12, textDecoration="bold"))
   addStyle(wb, "Invoice", style_line_bold, rows = MAIN_SECTION_HEADER, cols = FIRST_COL:LAST_COL, stack = TRUE)
+  
   headers <- c("Item", "Amount", "Description", "Quantity", "Discount %", "Discount $", "Total Amount [AUD]")
   writeData(wb, "Invoice", t(headers), startRow = MAIN_SECTION_HEADER, startCol = ITEM_LABEL_COL, colNames = FALSE)
   addStyle(wb, "Invoice", style_bold, rows = MAIN_SECTION_HEADER, cols = FIRST_COL:LAST_COL)
@@ -141,32 +148,36 @@ generate_excel_quote <- function(meta_data, meta_label, cart_data, file) {
   if(nrow(df_table) > 0) {
     writeData(wb, "Invoice", df_table, startRow = MAIN_SECTION_HEADER + 1, startCol = ITEM_LABEL_COL, colNames = FALSE)
     data_rows <- (MAIN_SECTION_HEADER + 1):(MAIN_SECTION_HEADER + nrow(df_table))
-    addStyle(wb, "Invoice", style_currency, rows = data_rows, cols = 2, stack = TRUE)
-    addStyle(wb, "Invoice", style_currency, rows = data_rows, cols = 6, stack = TRUE)
-    addStyle(wb, "Invoice", style_currency, rows = data_rows, cols = 7, stack = TRUE)
+    
+    # Apply currency formatting
+    addStyle(wb, "Invoice", style_currency, rows = data_rows, cols = 2, stack = TRUE) # Unit Price
+    addStyle(wb, "Invoice", style_currency, rows = data_rows, cols = 6, stack = TRUE) # Discount Amt
+    addStyle(wb, "Invoice", style_currency, rows = data_rows, cols = 7, stack = TRUE) # Total
     last_row <- max(data_rows)
   } else {
     last_row <- MAIN_SECTION_HEADER + 1
   }
   addStyle(wb, "Invoice", style_line_bold, rows = last_row, cols = FIRST_COL:LAST_COL, stack = TRUE)
   
-  # Per batch totals
+  # --- Write Summary Totals ---
   row_sum_start <- last_row + 1
   write_data_to_excel(wb, "Invoice", "Total (per batch)", start_row = row_sum_start, start_col = FIRST_COL, text_style = style_bold)
   write_data_to_excel(wb, "Invoice", raw_total_batch, start_row = row_sum_start, start_col = LAST_COL, text_style = style_currency)
+  
   writeData(wb, "Invoice", "Discount", startRow = row_sum_start + 1, startCol = FIRST_COL)
   write_data_to_excel(wb, "Invoice", discount_total_batch, start_row = row_sum_start + 1, start_col = LAST_COL, text_style = style_currency)
   addStyle(wb, "Invoice", style_line_thin, rows = row_sum_start + 1, cols = FIRST_COL:LAST_COL, stack = TRUE)
+  
   write_data_to_excel(wb, "Invoice", "Discount total (per batch)", start_row = row_sum_start + 2, start_col = FIRST_COL, text_style = style_bold)
   write_data_to_excel(wb, "Invoice", net_total_batch, start_row = row_sum_start + 2, start_col = LAST_COL, text_style = style_grand_total, text_style2 = style_currency)
   
-  # Project total
+  # --- Write Grand Total ---
   row_grand <- row_sum_start + 4 
   grand_label <- paste0("Total Project cost (", batches, " ", batch_label, ")")
   write_data_to_excel(wb, "Invoice", grand_label, start_row = row_grand, start_col = FIRST_COL, text_style = style_grand_total)
   write_data_to_excel(wb, "Invoice", project_total, start_row = row_grand, start_col = LAST_COL, text_style = style_grand_total, text_style2 = style_currency)
   
-  # Footer section
+  # --- Footer ---
   row_footer <- row_grand + 2
   footer_text <- c(
     "All prices are in AUD and exclude GST.",
@@ -177,33 +188,22 @@ generate_excel_quote <- function(meta_data, meta_label, cart_data, file) {
     write_data_to_excel(wb, "Invoice", footer_text[i], start_row = row_footer + i, start_col = FIRST_COL, text_style = createStyle(fontSize = 9))
   }
   
+  # Adjust column widths for readability
   setColWidths(wb, "Invoice", cols = FIRST_COL:LAST_COL, widths = c(30, 15, 30, 10, 15, 15, 20))
   saveWorkbook(wb, file, overwrite = TRUE)
 }
 
 write_data_to_excel <- function(wb_object, target_sheet, text, start_row, start_col, end_col = NULL, text_style = NULL, text_style2 = NULL) {
-  # Utility function to write data to Excel with optional styling.
-  #
-  # Arguments: 
-  # wb_object(Workbook) - Workbook object containing a worksheet
-  # target_sheet(string) - The name of the worksheet to write to 
-  # text(string) - The text to be written into the worksheet
-  # start_row(integer) - The row for text to be written into
-  # start_col(integer) - The first column for text to be written into
-  # end_col(integer) - The last column for text style to be applied to (Optional)
-  # text_style(style) - The 1st style of text to be applied (Optional)
-  # text_style2(style) - The 2nd style of text to be applied (Optional)
+  # Helper function to write content and apply up to two styles to a cell or range.
   
   writeData(wb = wb_object, sheet = target_sheet, x = text, startRow = start_row, startCol = start_col)
   
-  # Check for end column argument
   if(is.null(end_col)) {
     end_col_idx <- start_col
   } else {
     end_col_idx <- end_col
   }
   
-  # Apply text styles if requested
   if(!is.null(text_style)) {
     addStyle(wb = wb_object, sheet = target_sheet, style = text_style, rows = start_row, cols = start_col:end_col_idx)
   }
@@ -213,13 +213,10 @@ write_data_to_excel <- function(wb_object, target_sheet, text, start_row, start_
 }
 
 generate_pdf_quote <- function(input, cart_data, file) {
-  # Generates a PDF invoice using R Markdown and LaTeX templates with custom fonts and styles.
-  #
-  # Arguments: 
-  # input(list) - List of input values from Shiny server function 
-  # cart_data(dataframe) - Dataframe containing selected items/charges from cart
-  # file(string) - The temporary file path for the PDF
+  # Generates a PDF invoice.
+  # Utilizes 'pdflatex' and standard 'helvet' fonts to ensure compatibility with Linux servers (shinyapps.io).
   
+  # --- Calculate Totals ---
   raw_total_batch <- sum(cart_data$Unit_Price * cart_data$Quantity, na.rm = TRUE)
   discount_total_batch <- sum(cart_data$Disc_Amt, na.rm = TRUE)
   net_total_batch <- raw_total_batch - discount_total_batch
@@ -228,33 +225,28 @@ generate_pdf_quote <- function(input, cart_data, file) {
   project_total <- net_total_batch * batches
   batch_label <- ifelse(batches > 1, "batches", "batch")
   
+  # --- Construct RMarkdown Content ---
   bt <- strrep("`", 3) 
   chunk_header <- paste0(bt, "{r setup, include=FALSE}")
   chunk_table  <- paste0(bt, "{r table, results='asis'}")
   chunk_end    <- bt
   
+  # Defines the RMarkdown structure with LaTeX header includes.
+  # Switches to 'pdflatex' engine and uses 'helvet' package for sans-serif fonts.
+  # Adjusted TikZ node positioning:
+  # - anchor=north east: The top-right corner of the node is the fixed point.
+  # - at (img.north east): Fixed to the top-right corner of the banner image.
+  # - xshift=-0.5cm: Pushes it slightly left from the very edge.
   rmd_content <- paste(
     "---",
     "output:",
     "  pdf_document:",
-    "    latex_engine: xelatex",
+    "    latex_engine: pdflatex", 
     "params:",
-    "  date: NA",
-    "  quote_id: NA",
-    "  proj_id: NA",
-    "  title: NA",
-    "  proj_type: NA",
-    "  platform: NA",
-    "  n_samples: NA",
-    "  n_batches: NA",
-    "  samp_per_batch: NA",
-    "  aimed_cells: NA",
-    "  cart: NA",
-    "  str_raw_total: NA",
-    "  str_disc_total: NA",
-    "  str_net_total: NA",
-    "  str_proj_total: NA",
-    "  batch_label: NA",
+    "  date: NA", "  quote_id: NA", "  proj_id: NA", "  title: NA", "  proj_type: NA",
+    "  platform: NA", "  n_samples: NA", "  n_batches: NA", "  samp_per_batch: NA",
+    "  aimed_cells: NA", "  cart: NA", "  str_raw_total: NA", "  str_disc_total: NA",
+    "  str_net_total: NA", "  str_proj_total: NA", "  batch_label: NA",
     "geometry: margin=0.8cm", 
     "header-includes:",
     "    - \\usepackage{booktabs}",
@@ -263,17 +255,19 @@ generate_pdf_quote <- function(input, cart_data, file) {
     "    - \\usepackage{float}",
     "    - \\usepackage{graphicx}",
     "    - \\usepackage{tikz}",
-    "    - \\usepackage{fontspec}",
-    "    - \\IfFontExistsTF{Helvetica Neue}{\\newfontfamily\\headerfont{Helvetica Neue}}{\\newfontfamily\\headerfont{Arial}}",
+    "    - \\usepackage[scaled]{helvet}",  
+    "    - \\renewcommand{\\familydefault}{\\sfdefault}",
+    "    - \\newcommand{\\headerfont}{\\sffamily}",
     "    - \\definecolor{darkgrey}{RGB}{77,77,77}",
     "---",
     "",
     "\\begin{center}",
     "  \\begin{tikzpicture}[remember picture]",
     "    \\node[inner sep=0pt, outer sep=0pt] (img) at (0,0) {\\makebox[\\textwidth][c]{\\includegraphics[width=0.95\\paperwidth]{pdf_header.png}}};",
-    "    \\node[anchor=north east, align=left, fill=white, inner sep=2pt, xshift=-0.4cm, yshift=-0.45cm] at (img.north east) {",
-    "      \\begin{minipage}{7.5cm}",
-    "        \\headerfont\\fontsize{10}{10.4}\\selectfont\\color{darkgrey}",
+    "    \\node[anchor=north east, align=left, fill=white, inner sep=3pt, xshift=1.65cm, yshift=-0.45cm] at (img.north east) {",
+    "      \\begin{minipage}{9.5cm}",
+    "        \\raggedright",
+    "        \\headerfont\\fontsize{9}{10}\\selectfont\\color{darkgrey}",
     "        \\textbf{The Walter and Eliza Hall Institute of Medical Research} \\\\",
     "        ABN 12 004 251 423 \\\\[0.6em]",
     "        1G Royal Parade Parkville Victoria 3052 Australia \\\\",
@@ -353,14 +347,17 @@ generate_pdf_quote <- function(input, cart_data, file) {
     sep = "\n"
   )
   
+  # Prepare the temporary Rmd file
   temp_rmd <- file.path(tempdir(), "invoice.Rmd")
   
+  # Ensure the header image is available in the temp directory
   if (file.exists("pdf_header.png")) {
     file.copy("pdf_header.png", file.path(tempdir(), "pdf_header.png"), overwrite = TRUE)
   }
   
   writeLines(rmd_content, temp_rmd)
   
+  # Prepare parameters for the RMarkdown template
   params_list <- list(
     date = escape_latex(input$meta_date),
     quote_id = escape_latex(input$quote_id),
@@ -380,6 +377,7 @@ generate_pdf_quote <- function(input, cart_data, file) {
     batch_label = batch_label
   )
   
+  # Render the PDF
   tryCatch({
     rmarkdown::render(temp_rmd, output_file = file, params = params_list, envir = new.env(parent = globalenv()))
   }, error = function(e) {
@@ -389,10 +387,7 @@ generate_pdf_quote <- function(input, cart_data, file) {
 }
 
 escape_latex <- function(x) {
-  # Escapes special LaTeX characters to prevent rendering errors.
-  #
-  # Arguments:
-  # x(string) - The string to be formatted
+  # Sanitizes input strings to escape special LaTeX characters.
   
   if (is.null(x) || is.na(x)) return("NA")
   x <- as.character(x)
