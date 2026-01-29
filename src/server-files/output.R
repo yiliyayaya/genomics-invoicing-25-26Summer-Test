@@ -6,7 +6,7 @@ QUOTE_ID_IDX <- 3
 # Column Indices
 ITEM_LABEL_COL <- 1
 FIRST_COL <- 1
-LAST_COL <- 5
+LAST_COL <- 7 # Updated to accommodate Discount % and Discount $ columns
 # Excel Row indices
 TITLE_SECTION <- 1
 DATE_SECTION <- 4
@@ -103,7 +103,7 @@ generate_excel_quote <- function(meta_data, meta_label, cart_data, file) {
   
   df_table <- cart_data %>%
     mutate(Total_Amount_AUD = Unit_Price * Quantity) %>%
-    select(Name, Unit_Price, Description, Quantity, Total_Amount_AUD)
+    select(Name, Unit_Price, Description, Quantity, Disc_Pct, Disc_Amt, Total_Amount_AUD)
   
   raw_total_batch <- sum(df_table$Total_Amount_AUD, na.rm = TRUE)
   discount_total_batch <- sum(cart_data$Disc_Amt, na.rm = TRUE)
@@ -133,7 +133,7 @@ generate_excel_quote <- function(meta_data, meta_label, cart_data, file) {
   # Main table section
   write_data_to_excel(wb, "Invoice", "Cost per batch", start_row = PER_BATCH_HEADING, start_col = FIRST_COL, text_style = createStyle(fontSize=12, textDecoration="bold"))
   addStyle(wb, "Invoice", style_line_bold, rows = MAIN_SECTION_HEADER, cols = FIRST_COL:LAST_COL, stack = TRUE)
-  headers <- c("Item", "Amount", "Description", "Quantity", "Total Amount [AUD]")
+  headers <- c("Item", "Amount", "Description", "Quantity", "Discount %", "Discount $", "Total Amount [AUD]")
   writeData(wb, "Invoice", t(headers), startRow = MAIN_SECTION_HEADER, startCol = ITEM_LABEL_COL, colNames = FALSE)
   addStyle(wb, "Invoice", style_bold, rows = MAIN_SECTION_HEADER, cols = FIRST_COL:LAST_COL)
   addStyle(wb, "Invoice", style_line_thin, rows = MAIN_SECTION_HEADER, cols = FIRST_COL:LAST_COL, stack = TRUE)
@@ -142,7 +142,8 @@ generate_excel_quote <- function(meta_data, meta_label, cart_data, file) {
     writeData(wb, "Invoice", df_table, startRow = MAIN_SECTION_HEADER + 1, startCol = ITEM_LABEL_COL, colNames = FALSE)
     data_rows <- (MAIN_SECTION_HEADER + 1):(MAIN_SECTION_HEADER + nrow(df_table))
     addStyle(wb, "Invoice", style_currency, rows = data_rows, cols = 2, stack = TRUE)
-    addStyle(wb, "Invoice", style_currency, rows = data_rows, cols = 5, stack = TRUE)
+    addStyle(wb, "Invoice", style_currency, rows = data_rows, cols = 6, stack = TRUE)
+    addStyle(wb, "Invoice", style_currency, rows = data_rows, cols = 7, stack = TRUE)
     last_row <- max(data_rows)
   } else {
     last_row <- MAIN_SECTION_HEADER + 1
@@ -176,7 +177,7 @@ generate_excel_quote <- function(meta_data, meta_label, cart_data, file) {
     write_data_to_excel(wb, "Invoice", footer_text[i], start_row = row_footer + i, start_col = FIRST_COL, text_style = createStyle(fontSize = 9))
   }
   
-  setColWidths(wb, "Invoice", cols = FIRST_COL:LAST_COL, widths = c(30, 15, 30, 10, 20))
+  setColWidths(wb, "Invoice", cols = FIRST_COL:LAST_COL, widths = c(30, 15, 30, 10, 15, 15, 20))
   saveWorkbook(wb, file, overwrite = TRUE)
 }
 
