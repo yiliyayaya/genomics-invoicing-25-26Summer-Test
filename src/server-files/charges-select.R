@@ -68,9 +68,10 @@ update_cart_services <- function(input, values) {
     ) %>%
     select(Cart_ID, Product_Code, Name = Service, Description, Type, Category, 
            Base_Ref, Add_Ref, Is_Constant, Unit_Price, Quantity, Disc_Pct, Disc_Amt, Final_Total)
-  
-  values$cart <- bind_rows(values$cart, new_entries) %>% as.data.frame()
-  showNotification(paste(nrow(new_entries), "new services added."), type = "message")
+  if(nrow(new_entries) > 0) {
+    values$cart <- bind_rows(values$cart, new_entries) %>% as.data.frame()
+    showNotification(paste(nrow(new_entries), "new services added."), type = "message")    
+  }
 }
 
 filter_services_data <- function(input, values) {
