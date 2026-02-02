@@ -85,9 +85,11 @@ filter_items_data <- function(input, values) {
   if(input$filter_category != "All") items_df <- items_df %>% filter(Category == input$filter_category)
   common_items <- values$data$application_protocol_item %>%
     filter(
+      # Filter by application with anonymous func
       if(values$application_select == "All") TRUE else
         map_lgl(Application, ~ any(.x %in% c(values$application_select, "ALL_APPLICATIONS"))),
       
+      # Filter by protocol with anonymous func
       if (values$protocol_select == "All") TRUE else 
         map_lgl(Protocol, ~ any(.x %in% c(values$protocol_select, "ALL_PROTOCOLS")))
     )

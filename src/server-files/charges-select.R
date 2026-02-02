@@ -86,9 +86,11 @@ filter_services_data <- function(input, values) {
   if(input$filter_group != "All") services_df <- services_df %>% filter(Group == input$filter_group)
   common_services <- values$data$application_protocol_proc %>%
     filter(
+      # Filter by application with anonymous func
       if(values$application_select == "All") TRUE else
         map_lgl(Application, ~ any(.x %in% c(values$application_select, "ALL_APPLICATIONS"))),
       
+      # Filter by protocol with anonymous func
       if (values$protocol_select == "All") TRUE else 
         map_lgl(Protocol, ~ any(.x %in% c(values$protocol_select, "ALL_PROTOCOLS")))
     )
