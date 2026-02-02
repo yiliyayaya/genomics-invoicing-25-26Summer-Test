@@ -68,9 +68,10 @@ update_cart_services <- function(input, values) {
     ) %>%
     select(Cart_ID, Product_Code, Name = Service, Description, Type, Category, 
            Base_Ref, Add_Ref, Is_Constant, Unit_Price, Quantity, Disc_Pct, Disc_Amt, Final_Total)
-  
-  values$cart <- bind_rows(values$cart, new_entries) %>% as.data.frame()
-  showNotification(paste(nrow(new_entries), "new services added."), type = "message")
+  if(nrow(new_entries) > 0) {
+    values$cart <- bind_rows(values$cart, new_entries) %>% as.data.frame()
+    showNotification(paste(nrow(new_entries), "new services added."), type = "message")    
+  }
 }
 
 filter_services_data <- function(input, values) {
@@ -83,12 +84,17 @@ filter_services_data <- function(input, values) {
   services_df <- values$data$services
   
   if(input$filter_group != "All") services_df <- services_df %>% filter(Group == input$filter_group)
-  if(values$application_select != "All") {
-    common_services <- values$data$application_protocol_proc %>% 
-      rowwise() %>%
-      filter(any(Application %in% values$application_select) | any(Application == "ALL_APPLICATIONS")) %>%
-      filter((any(Protocol %in% values$protocol_select) | any(Protocol == "ALL_PROTOCOLS")), values$protocol_select != "All") %>%
-      ungroup()
+  common_services <- values$data$application_protocol_proc %>%
+    filter(
+      # Filter by application with anonymous func
+      if(values$application_select == "All") TRUE else
+        map_lgl(Application, ~ any(.x %in% c(values$application_select, "ALL_APPLICATIONS"))),
+      
+      # Filter by protocol with anonymous func
+      if (values$protocol_select == "All") TRUE else 
+        map_lgl(Protocol, ~ any(.x %in% c(values$protocol_select, "ALL_PROTOCOLS")))
+    )
+  if(nrow(common_services) > 0) {
     services_df <- services_df[services_df$Service %in% common_services$Service, ]
   }
   

@@ -20,6 +20,7 @@ library(rmarkdown)    # For generating PDF reports
 library(shinyjs)      # For JavaScript operations (hiding/disabling inputs, onclick events)
 library(tinytex)      # Helper for compiling LaTeX to PDF
 library(RColorBrewer) # For professional color palettes
+library(purrr)        # For functional programming and mapping data efficiently
 
 # UI Interface structure
 ui <- main_ui_features()

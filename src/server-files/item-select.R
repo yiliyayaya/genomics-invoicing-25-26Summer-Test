@@ -66,9 +66,10 @@ update_cart_items <- function(input, values) {
     select(Cart_ID, Product_Code, Name = Item, Description, Type, Category, 
            Base_Ref, Add_Ref, Is_Constant, Unit_Price, Quantity, Disc_Pct, Disc_Amt, Final_Total)
   
-  values$cart <- bind_rows(values$cart, new_entries) %>% as.data.frame()
-  
-  showNotification(paste(nrow(new_entries), "new items added."), type = "message")
+  if(nrow(new_entries) > 0) {
+    values$cart <- bind_rows(values$cart, new_entries) %>% as.data.frame()
+    showNotification(paste(nrow(new_entries), "new items added."), type = "message")  
+  }
 }
 
 filter_items_data <- function(input, values) {
@@ -82,14 +83,19 @@ filter_items_data <- function(input, values) {
   
   if(input$filter_item_brand != "All") items_df <- items_df %>% filter(Brand == input$filter_item_brand)
   if(input$filter_category != "All") items_df <- items_df %>% filter(Category == input$filter_category)
-  if(values$application_select != "All") {
-    common_items <- values$data$application_protocol_item %>% 
-      rowwise() %>%
-      filter(any(Application %in% values$application_select) | any(Application == "ALL_APPLICATIONS")) %>%
-      filter((any(Protocol %in% values$protocol_select) | any(Protocol == "ALL_PROTOCOLS")), values$protocol_select != "All") %>%
-      ungroup()
+  common_items <- values$data$application_protocol_item %>%
+    filter(
+      # Filter by application with anonymous func
+      if(values$application_select == "All") TRUE else
+        map_lgl(Application, ~ any(.x %in% c(values$application_select, "ALL_APPLICATIONS"))),
+      
+      # Filter by protocol with anonymous func
+      if (values$protocol_select == "All") TRUE else 
+        map_lgl(Protocol, ~ any(.x %in% c(values$protocol_select, "ALL_PROTOCOLS")))
+    )
+  if(nrow(common_items) > 0) {
     items_df <- items_df %>% semi_join(common_items, by=c("Item", "Brand"))
-  }  
+  }
   
   return(items_df)
 }
