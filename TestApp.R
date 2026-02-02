@@ -63,7 +63,8 @@ server <- function(input, output, session) {
   # Backend and processing logic
   main_server_logic(input, output, session, values)
   # PDF and Excel output logic
-  main_output_logic(input, output, values$cart)
+  # Pass the reactiveValues object directly to ensure downloads use live data
+  main_output_logic(input, output, values)
 }
 
 # Run the Application
