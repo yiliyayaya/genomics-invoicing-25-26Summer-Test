@@ -52,4 +52,4 @@ jobs:
         run: |
           Rscript -e "rsconnect::setAccountInfo(name=Sys.getenv('NAME'), token=Sys.getenv('TOKEN'), secret=Sys.getenv('SECRET'))"
           # Deploy the application using TestApp.R as the primary file
-          Rscript -e "rsconnect::deployApp(appName='genomics-invoicing-app', appPrimaryDoc = 'TestApp.R', forceUpdate = TRUE)"
+          Rscript -e "rsconnect::deployApp(appName='genomics-invoicing-app', appPrimaryDoc = 'app.R', forceUpdate = TRUE)"
