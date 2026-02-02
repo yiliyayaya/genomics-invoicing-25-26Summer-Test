@@ -1,7 +1,7 @@
-source("src/ui-files/charges-ui.R", local=TRUE)
-source("src/ui-files/final-quote-ui.R", local=TRUE)
-source("src/ui-files/item-ui.R", local=TRUE)
-source("src/ui-files/application-protocol-ui.R", local=TRUE)
+source("R/ui-files/charges-ui.R", local=TRUE)
+source("R/ui-files/final-quote-ui.R", local=TRUE)
+source("R/ui-files/item-ui.R", local=TRUE)
+source("R/ui-files/application-protocol-ui.R", local=TRUE)
 
 main_ui_features <- function() {
   # Main function to initialize app UI structure
