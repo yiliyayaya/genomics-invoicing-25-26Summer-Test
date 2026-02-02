@@ -21,13 +21,13 @@ METADATA_SECTION <- 7
 PER_BATCH_HEADING <- 15
 MAIN_SECTION_HEADER <- 16
 
-main_output_logic <- function(input, output, cart_data) {
+main_output_logic <- function(input, output, values) {
   # Core logic for handling spreadsheet templates, Excel quotes, and PDF invoices.
   #
   # Arguments:
   #   input      - List of input values from the Shiny server.
   #   output     - List of output values from the Shiny server.
-  #   cart_data  - Dataframe containing the selected items/charges.
+  #   values     - ReactiveValues object containing the live cart data.
   
   # --- PDF Engine Initialization ---
   # Pre-warms the PDF rendering engine to reduce latency for the first user request.
@@ -47,6 +47,9 @@ main_output_logic <- function(input, output, cart_data) {
   output$dl_excel <- downloadHandler(
     filename = function() { paste0(input$quote_id, "_Quote.xlsx") },
     content = function(file) {
+      # Access values$cart inside content to capture the latest edits
+      current_cart <- values$cart
+      
       # Aggregate metadata into a list for processing
       meta_data = list(
         title = input$meta_title,
@@ -67,7 +70,7 @@ main_output_logic <- function(input, output, cart_data) {
         "Platform:", "Total # samples:", "# batches:", "# samples per batch:", "Aimed # cells per sample:"
       )
       
-      generate_excel_quote(meta_data, meta_labels, cart_data, file)
+      generate_excel_quote(meta_data, meta_labels, current_cart, file)
     }
   )
   
@@ -77,7 +80,9 @@ main_output_logic <- function(input, output, cart_data) {
     filename = function() { paste0(input$quote_id, "_Invoice.pdf") },
     content = function(file) {
       req(requireNamespace("tinytex", quietly = TRUE))
-      generate_pdf_quote(input, cart_data, file)
+      # Access values$cart inside content to capture the latest edits
+      current_cart <- values$cart
+      generate_pdf_quote(input, current_cart, file)
     }
   )
 }
@@ -106,15 +111,14 @@ generate_excel_quote <- function(meta_data, meta_label, cart_data, file) {
   style_line_thin <- createStyle(border = "bottom", borderColour = "black", borderStyle = "thin")
   style_grand_total <- createStyle(fontSize = 12, textDecoration = "bold")
   
-  # Prepare data table for export
+  # Prepare data table for export using Final_Total which already accounts for discounts
   df_table <- cart_data %>%
-    mutate(Total_Amount_AUD = Unit_Price * Quantity) %>%
-    select(Name, Unit_Price, Description, Quantity, Disc_Pct, Disc_Amt, Total_Amount_AUD)
+    select(Name, Unit_Price, Description, Quantity, Disc_Pct, Disc_Amt, Final_Total)
   
   # Calculate Totals
-  raw_total_batch <- sum(df_table$Total_Amount_AUD, na.rm = TRUE)
+  raw_total_batch <- sum(cart_data$Unit_Price * cart_data$Quantity, na.rm = TRUE)
   discount_total_batch <- sum(cart_data$Disc_Amt, na.rm = TRUE)
-  net_total_batch <- raw_total_batch - discount_total_batch
+  net_total_batch <- sum(cart_data$Final_Total, na.rm = TRUE)
   
   batches <- as.numeric(meta_data$n_batches)
   project_total <- net_total_batch * batches
@@ -168,7 +172,7 @@ generate_excel_quote <- function(meta_data, meta_label, cart_data, file) {
   write_data_to_excel(wb, "Invoice", discount_total_batch, start_row = row_sum_start + 1, start_col = LAST_COL, text_style = style_currency)
   addStyle(wb, "Invoice", style_line_thin, rows = row_sum_start + 1, cols = FIRST_COL:LAST_COL, stack = TRUE)
   
-  write_data_to_excel(wb, "Invoice", "Discount total (per batch)", start_row = row_sum_start + 2, start_col = FIRST_COL, text_style = style_bold)
+  write_data_to_excel(wb, "Invoice", "Net Total (per batch)", start_row = row_sum_start + 2, start_col = FIRST_COL, text_style = style_bold)
   write_data_to_excel(wb, "Invoice", net_total_batch, start_row = row_sum_start + 2, start_col = LAST_COL, text_style = style_grand_total, text_style2 = style_currency)
   
   # --- Write Grand Total ---
@@ -216,7 +220,7 @@ generate_pdf_quote <- function(input, cart_data, file) {
   # Generates a PDF invoice.
   # Utilizes 'pdflatex' and standard 'helvet' fonts to ensure compatibility with Linux servers (shinyapps.io).
   
-  # --- Calculate Totals ---
+  # --- Calculate Totals using net values ---
   raw_total_batch <- sum(cart_data$Unit_Price * cart_data$Quantity, na.rm = TRUE)
   discount_total_batch <- sum(cart_data$Disc_Amt, na.rm = TRUE)
   net_total_batch <- raw_total_batch - discount_total_batch
@@ -232,11 +236,6 @@ generate_pdf_quote <- function(input, cart_data, file) {
   chunk_end    <- bt
   
   # Defines the RMarkdown structure with LaTeX header includes.
-  # Switches to 'pdflatex' engine and uses 'helvet' package for sans-serif fonts.
-  # Adjusted TikZ node positioning:
-  # - anchor=north east: The top-right corner of the node is the fixed point.
-  # - at (img.north east): Fixed to the top-right corner of the banner image.
-  # - xshift=-0.5cm: Pushes it slightly left from the very edge.
   rmd_content <- paste(
     "---",
     "output:",
@@ -314,7 +313,7 @@ generate_pdf_quote <- function(input, cart_data, file) {
     "tbl_data <- params$cart %>%",
     "  mutate(",
     "    Amount = sprintf(\"$%.2f\", Unit_Price),",
-    "    Total_AUD = sprintf(\"$%.2f\", Unit_Price * Quantity),",
+    "    Total_AUD = sprintf(\"$%.2f\", Final_Total),",
     "    Description = ifelse(is.na(Description), \"\", Description)",
     "  ) %>%",
     "  select(Name, Amount, Description, Quantity, Total_AUD)",
@@ -332,7 +331,7 @@ generate_pdf_quote <- function(input, cart_data, file) {
     "Total (per batch) & `r params$str_raw_total` \\\\",
     "Discount & `r params$str_disc_total` \\\\",
     "\\hline",
-    "\\textbf{Discount total (per batch)} & \\textbf{`r params$str_net_total`} \\\\",
+    "\\textbf{Net Total (per batch)} & \\textbf{`r params$str_net_total`} \\\\",
     "\\vspace{1em} & \\\\",
     "\\textbf{Total Project cost (`r params$n_batches` `r params$batch_label`)} & \\textbf{`r params$str_proj_total`}",
     "\\end{tabular}",
