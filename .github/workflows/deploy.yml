@@ -35,7 +35,7 @@ jobs:
           Rscript -e 'remotes::install_version("shiny", version = "1.11.1", upgrade = "never", repos = "https://cloud.r-project.org")'
           
           # Install remaining dependencies (excluding bslib and shiny as they are already installed above)
-          Rscript -e 'install.packages(c("rsconnect", "DT", "dplyr", "readxl", "openxlsx", "tidyr", "rmarkdown", "shinyjs", "tinytex", "RColorBrewer"))'
+          Rscript -e 'install.packages(c("rsconnect", "DT", "dplyr", "readxl", "openxlsx", "tidyr", "rmarkdown", "shinyjs", "tinytex", "RColorBrewer", "purrr"))'
 
       - name: Install TinyTeX
         run: |
