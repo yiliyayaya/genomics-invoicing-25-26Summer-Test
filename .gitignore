@@ -1,0 +1,14 @@
+# RStudio files
+*.Rproj
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+.Renviron
+
+# Testthat temporary files
+tests/testthat/test-*.Rout
+tests/testthat/test-*.out
+
+# Shinytest2 temporary files
+tests/testthat/test-*.log
