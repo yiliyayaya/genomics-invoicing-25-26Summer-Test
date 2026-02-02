@@ -20,6 +20,7 @@ library(rmarkdown)    # For generating PDF reports
 library(shinyjs)      # For JavaScript operations (hiding/disabling inputs, onclick events)
 library(tinytex)      # Helper for compiling LaTeX to PDF
 library(RColorBrewer) # For professional color palettes
+library(purrr)        # For functional programming and mapping data efficiently
 
 # UI Interface structure
 ui <- main_ui_features()
@@ -63,7 +64,8 @@ server <- function(input, output, session) {
   # Backend and processing logic
   main_server_logic(input, output, session, values)
   # PDF and Excel output logic
-  main_output_logic(input, output, values$cart)
+  # Pass the reactiveValues object directly to ensure downloads use live data
+  main_output_logic(input, output, values)
 }
 
 # Run the Application

@@ -3,7 +3,7 @@
 # DESCRIPTION: Ensures all R packages and LaTeX dependencies are installed.
 # ==============================================================================
 
-REQUIRED_PACKAGES <- c("shiny", "bslib", "DT", "dplyr", "readxl", "openxlsx", 
+REQUIRED_PACKAGES <- c("shiny", "bslib", "DT", "dplyr", "readxl", "openxlsx", "purrr",
                        "tidyr", "rmarkdown", "shinyjs", "tinytex", "RColorBrewer")
 
 run_setup <- function() {
