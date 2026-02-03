@@ -8,5 +8,6 @@
 
 library(testthat)
 library(GenomicsInvoicingApp)
+source("requirements/testing_requirements.R", local=TRUE)
 
 test_local()
