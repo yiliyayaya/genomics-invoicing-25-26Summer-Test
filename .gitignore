@@ -6,6 +6,10 @@
 .Ruserdata
 .Renviron
 
+# renv files
+renv/library
+renv/staging
+
 # Testthat temporary files
 tests/testthat/test-*.Rout
 tests/testthat/test-*.out
