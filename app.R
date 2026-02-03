@@ -1,5 +1,5 @@
-source("src/server.R", local=TRUE)
-source("src/ui.R", local=TRUE)
+source("R/server.R", local=TRUE)
+source("R/ui.R", local=TRUE)
 source("requirements/requirements.R", local=TRUE)
 # ==============================================================================
 # SECTION 1: PACKAGE MANAGEMENT & SETUP
