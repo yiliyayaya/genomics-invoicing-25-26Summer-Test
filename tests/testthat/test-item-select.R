@@ -14,9 +14,8 @@ small_test_items <- tibble(
 )
 
 small_test_application_protocol_items <- tibble(
-  Brand = c("Xenium", "KBrand", "KBrand", "GEM-X", "Next GEM"), 
-  Item = c("Xenium Kit", "Barcode Kit v3", "Library Construction Kit", 
-           "Chromium GEM-X Single Cell 5' Kit v3", "5' CRISPR Kit"), 
+  Brand = small_test_items$Brand, 
+  Item = small_test_items$Item, 
   Application = c(list("Xenium"), 
                   list("ALL_APPLICATIONS"), 
                   list("ALL_APPLICATIONS"), 
