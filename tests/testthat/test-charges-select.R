@@ -1,4 +1,5 @@
 library(dplyr)
+library(purrr)
 
 small_test_charges <- tibble(
   Group = c("Group A", "Group A", "Group B", "Group C", "Group E", "Group E"),
