@@ -20,11 +20,13 @@ This comprehensive README is designed to help newcomers gain a complete understa
 
 [5. Project Evolution](#5-project-evolution)
 
-[6. Guiding Principles for Interns](#6-guiding-principles-for-interns)
+[6. Testing](#6-testing)
 
-[7. Resources & Documentation](#7-resources-and-documentation)
+[7. Guiding Principles for Interns](#7-guiding-principles-for-interns)
 
-[8. Contact](#8-contact)
+[8. Resources & Documentation](#8-resources-and-documentation)
+
+[9. Contact](#9-contact)
 
 ---
 
@@ -178,6 +180,7 @@ The code is currently setup such that the user would input a .xlsx master spread
 ├── requirements/ 
 │   └── requirements.R                      # Dependencies and libraries checking 
 ├── assets/                                 # Folder to store images and digital assets
+├── tests/                                  # Folder to store testing files 
 └── src/ 
     ├── server.R                            # Main backend logic (Shiny server) 
     ├── ui.R                                # Main frontend layout (Shiny UI) 
@@ -295,19 +298,71 @@ The new version is a comprehensive upgrade designed to match the **Genomics Team
 
 ---
 
-## 6. Guiding Principles for Interns
+## 6. Testing
+
+Testing is done on this application using the `testthat` and `shinytest2` libraries. The tests implemented in this app mostly revolve around the data processing functionality to ensure that the app continues to perform as expected after changes are made to the code.
+
+### 6.1 Run Tests
+To run the tests implemented, start by recreating the test environment using the following command in the RStudio console where the project folder is:
+```r
+install.packages("renv") # This step is needed if you don't have renv installed
+renv::restore()
+``` 
+Now that the environment and packages have been installed, run the following command in the RStudio console to run the tests:
+```r
+devtools::test()
+```
+
+After the test is run, you should see 4 columns with numbers in each. These are the results of your test.
+
+The following example is a sample result taken from a test run. 
+```r
+| F W  S  OK | Context
+|          6 | charges-select
+| 2       10 | item-select
+[ FAIL 2 | WARN 0 | SKIP 0 | PASS 16 ]
+```
+There are 4 labels, which are Fail(F), Warning(W), Skip(S) and Pass(OK). Each line indicates how many expect() statements within that row's modules had the column's results.
+
+
+### 6.2 Create New Tests
+
+As this app continues to be developed, we expect that the number and types of test would continute to evolve with it to ensure consistent behavior.
+
+To add a test to the suite of tests, use the following command, replacing `"module"` with the name of the module you want to test. `usethis` will then handle the creation of the file which will appear under the */testthat* folder.
+
+```r
+usethis::use_test("module")
+```
+
+
+### 6.3 Testing Contents
+
+Inside of *tests/testthat* is where all the testing modules from `usethis::use_test()` are with *tests/testthat/testdata* storing sample spreadsheets which can be used for testing purposes only.
+
+There are currently 3 spreadsheets:
+
+*empty-spreadsheet.xlsx* - An empty master spreadsheet with the correct structure, used to validate that functions won't break on empty inputs.
+
+*sample-spreadsheet.xlsx* - A regular master spreadsheet with all required columns filled in, used to simulate regular error-free data.
+
+*errors-spreadsheet.xlsx* - An error-filled master spreadsheed with missing values and edge-case inputs designed to test the limitations of functions in handling incomplete or missing data.
+
+---
+
+## 7. Guiding Principles for Interns
 
 Guidelines to help future interns maintain and develop the project.
 
-### 6.1 Code Design
+### 7.1 Code Design
 * **Logic in Code, Not Spreadsheet**: Keep the Excel template "dumb" (data only). All pricing logic must live in the R code.
 * **Minimize User Touchpoints**: Always design for the client. Reduce the number of clicks and manual inputs required to reach the final invoice.
 
-### 6.2 Asking Questions
+### 7.2 Asking Questions
 * **Research First**: Investigate thoroughly before asking. Can the answer be found in the code or diaries? Make reasonable assumptions to reduce the workload of the person answering.
 * **Escalation Path**: Discuss with teammates -> Ask Rowland (Supervisor) -> Ask Daniela (Client) only when necessary (she is very busy).
 
-### 6.3 Team Collaboration
+### 7.3 Team Collaboration
 * **Setup Early**: Establish a group chat in week one and confirm project meeting times with Rowland.
 * **Weekly Updates**: Send a weekly update email to Rowland at least **24 hours before** your meeting.
   * [**Weekly Email Update Examples**](https://wehieduau.sharepoint.com/sites/StudentInternGroupatWEHI/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2FStudentInternGroupatWEHI%2FShared%20Documents%2FGenomics%20Invoicing%2F2025%2026%20Summer%2FMeeting%20%26%20Weekly%20Update%20Email%2FWeekly%20Email%20Update&viewid=afd55542%2D8e3a%2D4327%2D95f9%2D63450ae10d2a)
@@ -316,24 +371,24 @@ Guidelines to help future interns maintain and develop the project.
 
 ---
 
-## 7. Resources & Documentation
+## 8. Resources & Documentation
 
-### 7.1 Core Handbooks
+### 8.1 Core Handbooks
 * [**User Handbook (Online Workflow)**](https://wehieduau.sharepoint.com/:w:/r/sites/StudentInternGroupatWEHI/_layouts/15/Doc.aspx?sourcedoc=%7B1C015D32-E32B-40D4-8EB7-40192F2860C7%7D&file=User%20Handbook.docx&action=default&mobileredirect=true)
 * [**Admin Handbook (Local Setup)**](https://wehieduau.sharepoint.com/:w:/r/sites/StudentInternGroupatWEHI/_layouts/15/Doc.aspx?sourcedoc=%7BC706F24B-5F4A-42C7-96ED-52BC028D93AF%7D&file=Admin%20Handbook.docx&action=default&mobileredirect=true)
 
-### 7.2 Project Context
+### 8.2 Project Context
 * [**Full Project Archive (Summer 25/26)**](https://wehieduau.sharepoint.com/sites/StudentInternGroupatWEHI/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2FStudentInternGroupatWEHI%2FShared%20Documents%2FGenomics%20Invoicing%2F2025%2026%20Summer&viewid=afd55542%2D8e3a%2D4327%2D95f9%2D63450ae10d2a)
 * [**Project Methodology (Q&A, Wireframes)**](https://wehieduau.sharepoint.com/sites/StudentInternGroupatWEHI/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2FStudentInternGroupatWEHI%2FShared%20Documents%2FGenomics%20Invoicing%2F2025%2026%20Summer%2FProject%20Methodology&viewid=afd55542%2D8e3a%2D4327%2D95f9%2D63450ae10d2a)
 * [**Technical Diaries**](https://wehieduau.sharepoint.com/sites/StudentInternGroupatWEHI/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2FStudentInternGroupatWEHI%2FShared%20Documents%2FGenomics%20Invoicing%2F2025%2026%20Summer%2FTechnical%20Diary&viewid=afd55542%2D8e3a%2D4327%2D95f9%2D63450ae10d2a)
 * [**Individual Learning Plans**](https://wehieduau.sharepoint.com/sites/StudentInternGroupatWEHI/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2FStudentInternGroupatWEHI%2FShared%20Documents%2FGenomics%20Invoicing%2F2025%2026%20Summer%2FIndividual%20Learning%20Plans&viewid=afd55542%2D8e3a%2D4327%2D95f9%2D63450ae10d2a)
 
-### 7.3 Historical References
+### 8.3 Historical References
 * [**Previous Intake Reports (Intake 11-13)**](https://wehi-researchcomputing.github.io/intakes/)
 
 ---
 
-## 8. Contact
+## 9. Contact
 
 If you have any questions or run into issues, please do not hesitate to reach out. We are here to help!
 
