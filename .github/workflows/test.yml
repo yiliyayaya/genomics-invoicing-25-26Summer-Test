@@ -27,5 +27,5 @@ jobs:
 
       - name: Run Tests
         run: |
-          testthat::test_local()
+          devtools::test()
         shell: Rscript {0}
