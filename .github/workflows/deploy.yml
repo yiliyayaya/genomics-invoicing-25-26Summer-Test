@@ -21,6 +21,10 @@ jobs:
       - name: Set up renv
         uses: r-lib/actions/setup-renv@v2 
 
+      - name: Restore renv environment
+        run: renv::restore()
+        shell: Rscript {0}
+
       - name: Install rsconnect
         run: install.packages('rsconnect')
         shell: Rscript {0}
@@ -32,20 +36,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev libxt-dev libfontconfig1-dev pandoc
-
-      - name: Install R Packages
-        run: |
-          # Install 'remotes' first to enable specific version installation
-          Rscript -e 'install.packages("remotes")'
           
-          # Force install specific versions of bslib (0.9.0) and shiny (1.11.1) to match local RStudio environment
-          # This ensures UI elements like buttons align correctly (fixing the left-alignment bug)
-          Rscript -e 'remotes::install_version("bslib", version = "0.9.0", upgrade = "never", repos = "https://cloud.r-project.org")'
-          Rscript -e 'remotes::install_version("shiny", version = "1.11.1", upgrade = "never", repos = "https://cloud.r-project.org")'
-          
-          # Install remaining dependencies (excluding bslib and shiny as they are already installed above)
-          Rscript -e 'install.packages(c("rsconnect", "DT", "dplyr", "readxl", "openxlsx", "tidyr", "rmarkdown", "shinyjs", "tinytex", "RColorBrewer", "purrr"))'
-
       - name: Install TinyTeX
         run: |
           # Install TinyTeX only if it is missing to speed up deployment
