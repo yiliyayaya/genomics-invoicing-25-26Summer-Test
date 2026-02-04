@@ -18,6 +18,13 @@ jobs:
         with:
           use-public-rspm: true
 
+      - name: Set up renv
+        uses: r-lib/actions/setup-renv@v2 
+
+      - name: Install rsconnect
+        run: install.packages('rsconnect')
+        shell: Rscript {0}
+
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
 
