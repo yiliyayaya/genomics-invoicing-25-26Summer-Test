@@ -29,6 +29,7 @@ small_test_application_protocol_items <- tibble(
 )
 
 test_that("filter_items_data is valid on small input", {
+  # Valid inputs, no filters check if dataframe should remain unchanged
   input <- list(filter_item_brand = "All", filter_category = "All")
   values <- list(
     application_select = "All",
@@ -46,7 +47,11 @@ test_that("filter_items_data is valid on small input", {
 })
 
 test_that("filter_items_data filters by Brand correctly", {
-  input <- list(filter_item_brand = "KBrand", filter_category = "All")
+  # Results should be filtered by brand only
+  test_brand <- "KBrand"
+  n_valid_lines <- 2
+  
+  input <- list(filter_item_brand = test_brand, filter_category = "All")
   values <- list(
     application_select = "All",
     protocol_select = "All",
@@ -57,14 +62,16 @@ test_that("filter_items_data filters by Brand correctly", {
   )
   
   result <- filter_items_data(input, values)
-  n_valid_lines <- 2
-  
-  expect_true(all(result$Brand == "KBrand"))
+  expect_true(all(result$Brand == test_brand))
   expect_equal(nrow(result), n_valid_lines)
 })
 
 test_that("filter_items_data filters by Category correctly", {
-  input <- list(filter_item_brand = "All", filter_category = "Library & Gel Bead Kit")
+  # Results should be filtered by category only
+  test_category <- "Library & Gel Bead Kit"
+  n_valid_lines <- 3
+  
+  input <- list(filter_item_brand = "All", filter_category = test_category)
   values <- list(
     application_select = "All",
     protocol_select = "All",
@@ -75,16 +82,18 @@ test_that("filter_items_data filters by Category correctly", {
   )
   
   result <- filter_items_data(input, values)
-  n_valid_lines <- 3
-  
-  expect_true(all(result$Category == "Library & Gel Bead Kit"))
+  expect_true(all(result$Category == test_category))
   expect_equal(nrow(result), n_valid_lines)
 })
 
 test_that("filter_items_data filters by Application correctly", {
+  # Results should be filtered by application only
+  test_application <- "Single Cell"
+  n_valid_lines <- 3
+  
   input <- list(filter_item_brand = "All", filter_category = "All")
   values <- list(
-    application_select = "Single Cell",
+    application_select = test_application,
     protocol_select = "All",
     data = list(
       items = small_test_items,
@@ -93,16 +102,18 @@ test_that("filter_items_data filters by Application correctly", {
   )
   
   result <- filter_items_data(input, values)
-  n_valid_lines <- 3
-  
   expect_equal(nrow(result), n_valid_lines)
 })
 
 test_that("filter_items_data filters by Protocol correctly", {
+  # Results should be filtered by protocol only
+  test_protocol <- "3' Gene Expression"
+  n_valid_lines <- 3
+  
   input <- list(filter_item_brand = "All", filter_category = "All")
   values <- list(
     application_select = "All",
-    protocol_select = "3' Gene Expression",
+    protocol_select = test_protocol,
     data = list(
       items = small_test_items,
       application_protocol_item = small_test_application_protocol_items
@@ -110,7 +121,5 @@ test_that("filter_items_data filters by Protocol correctly", {
   )
   
   result <- filter_items_data(input, values)
-  n_valid_lines <- 3
-  
   expect_equal(nrow(result), n_valid_lines)
 })

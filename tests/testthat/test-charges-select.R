@@ -47,6 +47,7 @@ test_that("filter_services_data is valid on small input", {
 })
 
 test_that("filter_services_data filters by Group correctly", {
+  # Results should be filtered by group only
   test_group <- "Group A"
   n_valid_lines <- 2
   
@@ -67,6 +68,7 @@ test_that("filter_services_data filters by Group correctly", {
 })
 
 test_that("filter_services_data filters by Application correctly", {
+  # Results should be filtered by application only
   test_application <- "Spatial Omics"
   n_valid_lines <- 3
   
@@ -86,6 +88,7 @@ test_that("filter_services_data filters by Application correctly", {
 })
 
 test_that("filter_services_data filters by Protocol correctly", {
+  # Results should be filtered by protocol only
   test_protocol <- "scPRM-Seq"
   n_valid_lines <- 3
   
