@@ -1,0 +1,29 @@
+Package: GenomicsInvoicingApp
+Type: project
+Title: WEHI Genomics Invoicing Application
+Version: 1.17.0
+Authors@R: c(person("WEHI", 
+				"Research Computing Platform", 
+				role = c("aut", "cre", "cph", "fnd"), 
+				email = "research.computing@wehi.edu.au"))
+Description: An R Shiny application for automating invoice generation 
+    from Excel master spreadsheets for the WEHI Genomics Lab.
+License: Proprietary
+Encoding: UTF-8
+Imports: 
+    shiny,
+    bslib,
+    DT,
+    dplyr,
+    readxl,
+    openxlsx,
+    purrr,
+    tidyr,
+    rmarkdown,
+    shinyjs,
+    tinytex,
+    RColorBrewer,
+    testthat (>= 3.0.0),
+    shinytest2,
+    devtools
+Config/testthat/edition: 3
