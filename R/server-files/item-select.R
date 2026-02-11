@@ -21,7 +21,7 @@ create_items_datatable <- function(input, values) {
   df_display <- df_display %>%
     select(-Base_Cost, -Add_Cost, -Is_Constant, -Category) %>%
     rename(Code = Product_Code)
-
+  
   # Generate display datatable
   items_datatable <- datatable(
     df_display,
@@ -29,9 +29,24 @@ create_items_datatable <- function(input, values) {
     options = list(pageLength = 10),
     colnames = colnames(df_display))
   
+  # Format Currency for all surcharge columns
   for (i in surcharge_list) {
     col_name <- i
     items_datatable <- items_datatable %>% formatCurrency(c(col_name))
+  }
+  
+  # Highlight the active surcharge column if selected
+  if (!is.null(input$item_surcharge_type) && input$item_surcharge_type != "") {
+    target_col <- input$item_surcharge_type
+    # Check if column exists to avoid errors
+    if (target_col %in% colnames(df_display)) {
+      items_datatable <- items_datatable %>% 
+        formatStyle(
+          target_col,
+          backgroundColor = '#FFF9C4', # Light yellow highlight
+          fontWeight = 'bold'
+        )
+    }
   }
   
   return(items_datatable)

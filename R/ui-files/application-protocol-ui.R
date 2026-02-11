@@ -4,6 +4,9 @@ structure_application_protocol_page <- function() {
   platform_panel <- nav_panel(
     title = "1. Select Application/Protocol",
     value = "tab_application",
+    
+    # --- Application/Protocol Selection Section ---
+    # Reverted to original single-card layout
     card(
       card_header("Select Application and Protocol"),
       layout_column_wrap(
