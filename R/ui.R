@@ -17,8 +17,18 @@ main_ui_features <- function() {
     "navbar-bg" = "#225EA8" 
   )
   
+  # Define the header title with Flexbox for Left/Right alignment
+  header_title <- div(class = "d-flex justify-content-between align-items-center w-100",
+                      span("WEHI Genomics Quoting Tool"),
+                      tags$a(href = "https://github.com/rowlandm/genomics-invoicing",
+                             target = "_blank",
+                             class = "btn btn-sm btn-light",
+                             style = "color: #225EA8; font-weight: bold;",
+                             icon("github"), "GitHub Repo")
+  )
+  
   app_interface <- page_sidebar(
-    title = "WEHI Genomics Invoicing",
+    title = header_title,
     theme = custom_theme,
     useShinyjs(), # Enable JavaScript capabilities
     

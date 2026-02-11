@@ -20,7 +20,7 @@ create_services_datatable <- function(input, values) {
   
   df_display <- df_display %>%
     select(-Base_Price)
-
+  
   services_dt <- datatable(
     df_display,
     selection = "multiple", 
@@ -28,11 +28,26 @@ create_services_datatable <- function(input, values) {
     colnames = colnames(df_display)
   )
   
+  # Format Currency for all surcharge columns
   for (i in surcharge_list) {
     col_name <- i
     services_dt <- services_dt %>% formatCurrency(c(col_name))
   }
-
+  
+  # Highlight the active surcharge column if selected
+  if (!is.null(input$services_surcharge_type) && input$services_surcharge_type != "") {
+    target_col <- input$services_surcharge_type
+    # Check if column exists to avoid errors
+    if (target_col %in% colnames(df_display)) {
+      services_dt <- services_dt %>% 
+        formatStyle(
+          target_col,
+          backgroundColor = '#FFF9C4', # Light yellow highlight
+          fontWeight = 'bold'
+        )
+    }
+  }
+  
   return(services_dt)  
 }
 

@@ -19,15 +19,16 @@ structure_quote_page <- function() {
         )
       ),
       card_body(
+        # Check if project configuration is complete
         conditionalPanel(
-          condition = "input.project_type !== ''",
+          condition = "input.item_surcharge_type !== '' && input.services_surcharge_type !== ''",
           DTOutput("table_final_quote") 
         ),
         
         conditionalPanel(
-          condition = "input.project_type == ''",
+          condition = "input.item_surcharge_type == '' || input.services_surcharge_type == ''",
           div(class = "alert alert-warning", 
-              "Please select a 'Project Type' in the sidebar to generate the quote.")
+              "Please configure Surcharges in Tab 1 to generate the quote.")
         )
       ),
       card_footer(
@@ -42,23 +43,28 @@ structure_quote_page <- function() {
 }
 
 quote_config_panel <- function() {
-  # Layout sidebar discounts and quote configuration structure of Final Quote page.
+  # Layout sidebar for Surcharges (Tab 1) and Discounts/Metadata (Tab 4).
   
-  config_panel <- conditionalPanel(
-    condition = "input.nav_tabs == 'tab_quote'",
-    h5("Quote Configuration"),
+  # --- Sidebar Content for Tab 1 (Surcharge Configuration) ---
+  config_tab1 <- conditionalPanel(
+    condition = "input.nav_tabs == 'tab_application'",
+    # Use label styling to match the fileInput header size and weight
+    # Reduced margin-bottom to bring inputs closer
+    tags$label("2. Select Quote Configuration", class = "control-label", style = "font-weight: bold; margin-bottom: 0px; margin-top: 10px;"),
     
     selectInput("item_surcharge_type", "Items Surcharge", choices = c("")),
     selectInput("services_surcharge_type", "Services Surcharge", choices = c("")),
     
-    conditionalPanel(
-      condition = "input.project_type !== ''",
-      div(style = "margin-bottom: 10px; padding-bottom: 0px;", 
-          strong("Current Multipliers:"),
-          tableOutput("multiplier_table") 
-      )
-    ),
-    hr(),
+    div(style = "margin-bottom: 10px; padding-bottom: 0px;", 
+        strong("Current Multipliers:"),
+        tableOutput("multiplier_table") 
+    )
+  )
+  
+  # --- Sidebar Content for Tab 4 (Discounts & Metadata) ---
+  config_tab4 <- conditionalPanel(
+    condition = "input.nav_tabs == 'tab_quote'",
+    h5("Quote Discounts & Metadata"),
     
     selectInput("supplier_discount_select", "Supplier Discounts (Optional)", choices = c(""), selectize=TRUE),
     actionButton("apply_supp_disc_btn", "Apply Supplier Discount"),
@@ -82,5 +88,6 @@ quote_config_panel <- function() {
     textInput("meta_aimed_cells", "Aimed # cells per sample", placeholder = "e.g., 5000")
   )
   
-  return(config_panel)
+  # Return both panels wrapped in a tagList to render them sequentially in the sidebar
+  return(tagList(config_tab1, config_tab4))
 }
