@@ -104,6 +104,9 @@ main_server_logic <- function(input, output, session, values) {
     
     isolate({
       update_cart_items(input, values)
+      # Fix: Force recalculation immediately after adding items 
+      # to apply the surcharges selected in Tab 1
+      recalculate_cart(input, values) 
     })
   })
   
@@ -117,6 +120,8 @@ main_server_logic <- function(input, output, session, values) {
     
     isolate({
       update_cart_services(input, values)
+      # Fix: Force recalculation immediately after adding services
+      recalculate_cart(input, values)
     })
   })
   
