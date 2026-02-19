@@ -25,9 +25,9 @@ main_output_logic <- function(input, output, values) {
   # Core logic for handling spreadsheet templates, Excel quotes, and PDF invoices.
   #
   # Arguments:
-  #   input      - List of input values from the Shiny server.
-  #   output     - List of output values from the Shiny server.
-  #   values     - ReactiveValues object containing the live cart data.
+  #    input      - List of input values from the Shiny server.
+  #    output     - List of output values from the Shiny server.
+  #    values     - ReactiveValues object containing the live cart data.
   
   # --- PDF Engine Initialization ---
   # Pre-warms the PDF rendering engine to reduce latency for the first user request.
@@ -279,6 +279,8 @@ generate_pdf_quote <- function(input, cart_data, file) {
     "",
     "\\vspace{-2em}",
     "",
+    "\\vspace{0.5em}",
+    "",
     chunk_header,
     "knitr::opts_chunk$set(echo = FALSE)",
     "library(knitr)",
@@ -318,7 +320,7 @@ generate_pdf_quote <- function(input, cart_data, file) {
     "  ) %>%",
     "  select(Name, Amount, Description, Quantity, Total_AUD)",
     "",
-    "k <- kable(tbl_data, format = 'latex', col.names = c(\"Item\", \"Amount\", \"Description\", \"Quantity\", \"Total Amount [AUD]\"), align = c(\"l\", \"r\", \"l\", \"c\", \"r\"), booktabs = TRUE)",
+    "k <- kable(tbl_data, format = 'latex', row.names = FALSE, col.names = c(\"Item\", \"Amount\", \"Description\", \"Quantity\", \"Total Amount [AUD]\"), align = c(\"l\", \"r\", \"l\", \"c\", \"r\"), booktabs = TRUE)",
     "k <- gsub(\"\\\\\\\\toprule\", \"\", k)",
     "k <- gsub(\"\\\\\\\\bottomrule\", \"\", k)",
     "cat(k)",
